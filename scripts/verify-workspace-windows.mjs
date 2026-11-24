@@ -23,15 +23,25 @@ const cli = fileURLToPath(new URL("../server/testing/fake-claude-cli.ts", import
 for (const dir of [data, personal]) writeFileSync(join(dir, "config.json"), JSON.stringify({
   ...cleanWorkspaceConfig("en"), instances: { claude: { driver: "claudeAgent", displayName: "Fixture", config: { cli } } },
 }), { mode: 0o600 });
+const replies = join(fixture, "chat-replies.json");
+writeFileSync(replies, JSON.stringify({
+  "Amber window reply": [{ say: "Amber received." }], "Indigo window reply": [{ say: "Indigo received." }],
+}));
+const threads = process.argv.includes("--threads");
 const remote = process.argv.includes("--saved-servers");
 const saved = [];
 if (remote) {
   const ui = fileURLToPath(new URL("../dist/", import.meta.url));
   assert.ok(existsSync(join(ui, "index.html")), "Build the UI for the fixture servers");
+  const legacyUi = join(fixture, "server-ui");
+  if (threads) {
+    mkdirSync(legacyUi);
+    writeFileSync(join(legacyUi, "index.html"), "<title>Earlier server UI</title>");
+  }
   try {
     for (const id of ["studio", "personal"]) {
-      const server = await launchVerificationServer({ FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_SLOW_FINISH_GATE: finish },
-        undefined, undefined, undefined, undefined, undefined, [], undefined, ui);
+      const server = await launchVerificationServer({ FAKE_STREAM_SCRIPT: replies, FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_SLOW_FINISH_GATE: finish },
+        undefined, undefined, undefined, undefined, undefined, [], undefined, threads ? legacyUi : ui);
       saved.push({ id, kind: "remote", name: id, origin: server.info.url, close: server.close });
     }
     writeFileSync(join(user, "environments.json"), JSON.stringify({ version: 2, activeId: "local", environments: saved }));
@@ -45,7 +55,7 @@ const platform = display.WAYLAND_DISPLAY ? "wayland" : "x11";
 const app = spawn(executable, [`--ozone-platform=${platform}`, "--password-store=basic", `--user-data-dir=${user}`, "--remote-debugging-port=0"], {
   cwd: home, env: { ...display, PATH: process.env.PATH, HOME: home, XDG_CONFIG_HOME: join(home, ".config"),
     XDG_CACHE_HOME: join(home, ".cache"), XDG_DATA_HOME: join(home, ".local/share"), TMPDIR: home,
-    OMB_DATA_DIR: data, OMB_COMPOSIO_BROKER_URL: "http://127.0.0.1:1", OMB_WEBHOOK_PORT: "0", FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_SLOW_FINISH_GATE: finish },
+    OMB_DATA_DIR: data, OMB_COMPOSIO_BROKER_URL: "http://127.0.0.1:1", OMB_WEBHOOK_PORT: "0", FAKE_STREAM_SCRIPT: replies, FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_SLOW_FINISH_GATE: finish },
   stdio: "ignore",
 });
 const ended = new Promise((done, fail) => { app.once("exit", done); app.once("error", fail); });
@@ -82,17 +92,20 @@ try {
       assert.ok(status < 400, `${route}: ${status} ${JSON.stringify(body)}`);
       return body;
     });
-    async function menu(selector) {
+    async function menu(selector, label = "Open in new window") {
       await evaluate('document.querySelector("[data-mausbot-welcome-later]")?.click()', true);
       await until(() => evaluate(`document.querySelector(${JSON.stringify(selector)}) !== null`), selector);
-      const action = 'document.querySelector("[data-open-window]")';
+      const button = selector.includes("data-sidebar-thread-row") ? "[data-thread-overlay] [data-open-window]" :
+        selector.includes("data-sidebar-group-row") ? "[data-room-menu] [data-open-window]" : "[data-open-window]";
+      const action = label === "Open in new window" ? `document.querySelector(${JSON.stringify(button)})` :
+        `[...document.querySelectorAll('button[role="menuitem"]')].find(button => button.textContent.trim() === ${JSON.stringify(label)})`;
       await until(async () => {
         if (await evaluate(`Boolean(${action})`)) return true;
         await evaluate(`document.querySelector(${JSON.stringify(selector)})?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }))`, true);
         return false;
-      }, `Open in new window on ${selector}`);
+      }, `${label} on ${selector}`);
       await evaluate(`${action}.click()`, true);
-      await until(() => evaluate(`!(${action})`), `closing the menu for ${selector}`);
+      await until(() => evaluate(`!(${action})`), `closing ${label} menu for ${selector}`);
     }
     return { ...page, evaluate, control, menu, cookies: () => cdp.send("Network.getCookies", {}, sessionId), close: () => cdp.send("Target.closeTarget", { targetId: page.targetId }) };
   }
@@ -168,7 +181,10 @@ try {
   console.log("Both workspaces ran a bot concurrently and retained separate conversations.");
   await rail.menu(otherSelector);
   assert.deepEqual((await pages()).filter(isOther).map(page => page.targetId), [other.targetId]);
-  await other.close();
+  if (threads) {
+    const { verifyThreadWindows } = await import("./verify-thread-windows.mjs");
+    await verifyThreadWindows({ main, other, work, homeBot, attach, until, messages, pages, remote });
+  } else await other.close();
   await until(async () => !(await pages()).some(page => page.targetId === other.targetId), "Personal to close");
   if (!remote) await until(() => !existsSync(join(personal, "openmausbot-server.lease")), "Personal server to release its data directory");
   assert.ok((await messages(main, work, work.activeTaskId)).messages.some(m => m.text?.includes("Studio fixture note")));

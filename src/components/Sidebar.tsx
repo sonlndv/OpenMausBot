@@ -34,6 +34,7 @@ import { openCommandPalette } from "./CommandPalette";
 import { RenameTitle } from "./RenameTitle";
 import { BotProjectDialog, FolderActions, FolderIcon, navigateThreadMenu } from "./BotProjects";
 import { NewTaskFolderDialog } from "./NewTaskFolderDialog";
+import { OpenWindowAction } from "./OpenWindowAction";
 import { GroupThreadList } from "./SidebarGroupThreadList";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 import { draggedFolder, FOLDER_DRAG_TYPE, moveFolder, placeFolder } from "@/lib/folder-order";
@@ -86,7 +87,7 @@ import { useShowThreads } from "@/lib/thread-preferences";
 import { useBotUnread } from "./unread-notice";
 import { attentionHasRunningWork, attentionJumpAction, attentionUnpinAction, crossBotAttentionThreads, crossBotPinnedThreads, runningRoutineRun, SidebarBotActivity, sidebarBotActivityTasks, sidebarBotStatus } from "./SidebarBotActivity";
 import { SidebarNoBots, SidebarTileGrid } from "./SidebarTiles";
-import { BotContextMenu } from "./SidebarBotMenu";
+import { BotContextMenu, type MenuState } from "./SidebarBotMenu";
 export { BotContextMenu };
 import { AvatarActivityDot, AvatarCornerDot, RowDot, RowStatusText, rowSelectedSurface, rowSurface } from "./SidebarRowMarkers";
 
@@ -124,11 +125,7 @@ function sectionLabel(id: string): string {
   return key ? t(key) : sidebarSectionLabel(id);
 }
 
-export interface MenuState {
-  botId: string;
-  x: number;
-  y: number;
-}
+export type { MenuState } from "./SidebarBotMenu";
 
 export function openBotContextMenu(onMenu: (menu: MenuState) => void, botId: string, event: React.MouseEvent) {
   event.preventDefault();
@@ -292,6 +289,7 @@ function RoomContextMenu({
       style={{ top, left }}
       className={cn("fixed z-40 w-[228px] overflow-hidden", MENU_SHEET, motion.className)} {...motion.exitProps}
     >
+      {!renaming && !describing && <OpenWindowAction menuItem target={{ bot: group.id, thread: group.threadId }} onOpened={onClose} />}
       {!remoteClient && describing ? (
         <div className="flex items-center gap-1 px-2 py-1">
           <input

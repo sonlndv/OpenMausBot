@@ -247,3 +247,6 @@ The fixture opens two workspaces, runs a fake bot in each, checks their separate
 histories, then closes and reopens one while using the other. The saved-server case
 also checks cookie isolation for two servers on the same host. Add `--check-tiling`
 on an isolated Hyprland desktop to verify that the native windows occupy separate tiles.
+
+Add `--threads` to open two conversations in their own windows. The saved-server case
+also exercises separate group threads using the UI from the desktop package.

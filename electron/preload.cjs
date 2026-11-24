@@ -167,6 +167,8 @@ const bridge = {
   // page and a hosted Cloud's, never addresses), and only from their click; no saved-list reads, host files or secrets.
   workspaces: {
     ...(isLocalPage ? {
+      openThread: (bot, thread) => navigator.userActivation?.isActive === true
+        ? ipcRenderer.invoke("workspace-window:thread", bot, thread) : Promise.resolve(false),
       openWindow: id => navigator.userActivation?.isActive === true
         ? ipcRenderer.invoke("workspace-window:place", id) : Promise.resolve(false),
     } : {}),

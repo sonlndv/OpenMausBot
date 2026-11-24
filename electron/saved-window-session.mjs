@@ -1,9 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { session } from "electron";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { net, session } from "electron";
 import { describeServer } from "./server-probe.mjs";
 import { restrictSessionToOrigin } from "./server-session.mjs";
 
-export async function createSavedWindowSession(origin) {
+const asset = /^\/assets\/[\w.-]+\.(?:js|css|png|svg|webp|ttf|woff2?)$/;
+const icons = new Set(["/app-icon.svg", "/app-icon-192.png", "/app-icon-512.png", "/apple-touch-icon.png", "/manifest.webmanifest"]);
+
+export async function createSavedWindowSession(origin, resourcesPath) {
   const browser = session.fromPartition(`saved-window-${randomUUID()}`);
   restrictSessionToOrigin(browser, origin);
   browser.setPermissionCheckHandler(() => false);
@@ -11,7 +16,18 @@ export async function createSavedWindowSession(origin) {
   const server = await describeServer(origin, (...args) => browser.fetch(...args));
   if (!server.ok) throw new Error("The saved server did not answer.");
   const identity = server.environmentId.replace(/[^a-z0-9]/gi, "").slice(0, 12);
+  const scheme = new URL(origin).protocol.slice(0, -1);
+  browser.protocol.handle(scheme, request => {
+    const url = new URL(request.url);
+    if (url.origin !== origin) return Response.error();
+    if (request.method === "GET" && (url.pathname === "/" || asset.test(url.pathname) || icons.has(url.pathname))) {
+      const file = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
+      return net.fetch(pathToFileURL(join(resourcesPath, "ui", file)).href);
+    }
+    return browser.fetch(request, { bypassCustomProtocolHandlers: true, credentials: "include", redirect: "manual" });
+  });
   function dispose() {
+    browser.protocol.unhandle(scheme);
     void browser.closeAllConnections().catch(() => {});
     void browser.clearData().catch(() => {});
   }
