@@ -13,6 +13,7 @@ import {
   type LiveEventsPlatform,
 } from "./live-events";
 import { cloudAsleep, markCloudAwake, resetCloudPowerForTests } from "./cloud-power";
+import { setRelayLink } from "./relay-server";
 import { resetTurnLive, turnLive } from "@/state/turn-status";
 
 class FakeTarget {
@@ -95,7 +96,7 @@ function harness(options?: { online?: boolean; visible?: boolean; now?: number }
 }
 
 beforeEach(() => vi.useFakeTimers());
-afterEach(() => { vi.useRealTimers(); resetCloudPowerForTests(); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); setRelayLink(null); resetCloudPowerForTests(); });
 
 describe("live events URL", () => {
   it("builds cold and resumable stream URLs", () => {
@@ -528,7 +529,7 @@ describe("the live connection's phase, which the 30-second still-waiting event n
   });
 });
 
-describe("the opt-in WebSocket feed", () => {
+describe("the WebSocket feed", () => {
   function socketHarness() {
     const h = harness();
     const sockets: FakeEventSource[] = [];
@@ -635,4 +636,58 @@ describe("the opt-in WebSocket feed", () => {
     stop();
   });
 
+});
+
+describe("browser transport selection", () => {
+  function browser(search = "", desktop = false) {
+    const sockets: FakeEventSource[] = [];
+    const streams: FakeEventSource[] = [];
+    vi.stubGlobal("window", Object.assign(new FakeTarget(), {
+      location: new URL(`https://example.test/${search}`),
+      ...(desktop ? { ogb: { platform: "linux" } } : {}),
+    }));
+    vi.stubGlobal("WebSocket", class extends FakeEventSource {
+      constructor(url: URL) { super(url.href); sockets.push(this); }
+    });
+    vi.stubGlobal("EventSource", class extends FakeEventSource {
+      constructor(url: string) { super(url); streams.push(this); }
+    });
+    const open = () => openLiveEvents({ onFrame: vi.fn(), onSnapshotRequired: async () => true }, {
+      isVisible: () => true, isOnline: () => true, documentTarget: new FakeTarget(),
+    });
+    return { sockets, streams, open };
+  }
+
+  it.each(["", "?liveTransport=auto"])("uses WebSocket for a direct browser at /%s", (search) => {
+    const h = browser(search);
+    const stop = h.open();
+    expect(h.sockets).toHaveLength(1);
+    expect(h.sockets[0]!.url).toContain("wss://example.test/api/events?");
+    expect(h.streams).toHaveLength(0);
+    stop();
+    expect(h.sockets[0]!.close).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    { search: "?liveTransport=sse", desktop: false },
+    { search: "", desktop: true },
+    { search: "?liveTransport=auto", desktop: true },
+  ])("keeps SSE for $search with desktop=$desktop", ({ search, desktop }) => {
+    const h = browser(search, desktop);
+    const stop = h.open();
+    expect(h.sockets).toHaveLength(0);
+    expect(h.streams).toHaveLength(1);
+    stop();
+  });
+
+  it("keeps the relay link ahead of direct browser transports", () => {
+    const h = browser();
+    const fetch = vi.fn(async () => new Response("", { headers: { "content-type": "text/event-stream" } }));
+    setRelayLink({ fetch, close: vi.fn() });
+    const stop = h.open();
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/api/events?"), expect.any(Object));
+    expect(h.sockets).toHaveLength(0);
+    expect(h.streams).toHaveLength(0);
+    stop();
+  });
 });
