@@ -56,6 +56,7 @@ export function useChatMoreItems(profile: Bot, phoneHeader = false): { items: Si
   const canSetMain = !browserSidebar() && ownerOrAdmin === true && !remoteClient && openTask !== undefined
     && !openTask.routineRunId && !openTask.private && !openTask.openedBy && !isArchived(openTask);
   const isMain = bot.threadId === mainId;
+  const publish = usePublishItem(profile);
   const shareItems: SidebarMenuItem[] = [
     ...(publish ? [publish] : []),
     ...(sharing.team ? [{ key: "share-team", label: t("conversationShare.withTeam"), icon: <Users size={16} />,

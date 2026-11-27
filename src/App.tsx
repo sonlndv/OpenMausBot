@@ -192,6 +192,8 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
   const chiefStep = useChiefStepOpen();
   const bot = group || chiefStep ? undefined : (state.bots.find((b) => b.id === state.selectedId) ?? state.bots[0]);
   const settingsBot = (state.workspacePanes && state.settingsPaneBotId && state.bots.find(b => b.id === state.settingsPaneBotId)) || bot;
+  const placedPanelBot = state.settingsOpen && settingsBot && isPlaceId(settingsBot.id) ? settingsBot
+    : state.computerOpen && bot && isPlaceId(bot.id) ? bot : undefined;
   const chatBot = useMemo(() => bot && newChatBot(bot, state.newChat), [bot, state.newChat]);
   const { open: drawerOpen, show: openDrawer, hide: hideDrawer, noteAction: noteDrawerAction, back: drawerBack, backSteps: drawerBackSteps } = useBotListDrawer({ selectedId: state.selectedId, botThread: chatBot?.threadId, groupThread: group?.threadId,
     view: state.activeView, pluginsOpen: state.pluginsOpen, settingsOpen: state.settingsOpen });
@@ -509,7 +511,9 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
         </main>
       )}
       {/* Sibling panels need distinct keys: two keyed `bot.id` collide in React's keyed reconciliation. */}
-      {state.settingsOpen && settingsBot && (
+      <PlaceChatKeeper />
+      {placedPanelBot && <PlacedBotPanel key={`placed:${placedPanelBot.id}`} bot={placedPanelBot} />}
+      {state.settingsOpen && settingsBot && !isPlaceId(settingsBot.id) && (
         remoteClient
           ? <RemoteAgentSettingsPanel bot={settingsBot} overlay={state.computerOpen && !twoSidePanelsFit} />
           : <BotSettingsDialog key={`settings:${settingsBot.id}`} bot={settingsBot} overlay={((state.inspectorOpen || state.computerOpen || (notificationFeed && state.notificationsOpen)) && !twoSidePanelsFit) || botPanelFloats(sidePanels, sidebarAndBotPanelFit)} />

@@ -687,6 +687,8 @@ export const BotListItem = memo(function BotListItem(props: BotRowProps) {
   const showThreads = useShowThreads() || (webTaskList && !advanced);
   const liveMedia = useLiveMedia();
   const remoteClient = typeof window !== "undefined" && window.ogb?.remoteClient?.active === true, placed = isPlacedBot(bot);
+  // A placed row can be arranged in the sidebar, but its chat must be opened through its place's bridge.
+  const paneDraggable = Boolean(paneChat) && !placed;
   const [renaming, setRenaming] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
   const [threadsOpen, setThreadsOpen] = useSearchDisclosure(`bot:${bot.id}`, showThreads ? query : "", searchMatchesThreads(query, bot.tasks, bot.projects), webTaskList && threadsUnfolded(bot.id));
@@ -840,8 +842,8 @@ export const BotListItem = memo(function BotListItem(props: BotRowProps) {
   return (
     <>
     <div className={cn("group relative", railTile && "mx-auto w-[54px]", botRowDropClass(drop, dragging))} data-bot-drop={drop ?? undefined}
-      draggable={Boolean(paneChat) && !renaming}
-      onDragStartCapture={event => { if (paneChat && event.target === event.currentTarget) startPaneDrag(event, bot.id, selected ? bot.threadId : botOpensTo(bot, showThreads)); }} {...(drag && !renaming ? drag.row(bot.id) : {})}
+      draggable={paneDraggable && !renaming}
+      onDragStartCapture={event => { if (paneDraggable && event.target === event.currentTarget) startPaneDrag(event, bot.id, selected ? bot.threadId : botOpensTo(bot, showThreads)); }} {...(drag && !renaming ? drag.row(bot.id) : {})}
       title={railTile ? botTooltip(bot, instances) : iconOnly ? [bot.name, bot.title?.trim()].filter(Boolean).join(" · ") : undefined}><BotDropLine place={drop} />
       {/* Keep this wrapper mounted: replacing it remounts RenameTitle and leaves the row stuck in rename mode. */}
       <div
@@ -1084,8 +1086,9 @@ export const Sidebar = memo(function Sidebar({ open, onClose, showPaneLayout = f
     );
   const visibleGroups = sideLists.groups.filter((g) => !q || g.name.toLowerCase().includes(q) || g.tasks?.some((task) => task.title.toLowerCase().includes(q)));
   const viewerEmail = useViewerEmail(), placed = useOtherPlaceBots(q), placeHere = useOneListHere();
-  const parts = partitionSidebarBots(botDrag.preview(matchingBots), { universalPins, viewerEmail, welcoming: useWelcomingBot(), searching: Boolean(q) });
-  const saved = withOtherPlace(tileLayout ? withPrimaryTile(parts, myDefaultBot(state.bots, viewerEmail)?.id) : { ...parts, primary: null }, placed);
+  const oneList = useOneList(matchingBots, placed, state.sections ?? NO_SECTIONS, dispatch, state.hydrated === true);
+  const parts = partitionSidebarBots(botDrag.preview(oneList?.bots ?? matchingBots), { universalPins, viewerEmail, welcoming: useWelcomingBot(), searching: Boolean(q) });
+  const saved = tileLayout ? withPrimaryTile(parts, myDefaultBot(state.bots, viewerEmail)?.id) : { ...parts, primary: null };
   // Rows keep their place while the app is in use: unread, work and a wait on the person show as marks on the row, never
   // as a move to the top or into an Unread list. Only a pin, a drag, Alt+Up/Down or a move to a department moves a row.
   const floats = () => false;

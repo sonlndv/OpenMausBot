@@ -7,6 +7,7 @@ import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Bot } from "@/state/store";
+import { WorkspaceChatContext } from "@/state/workspace-chat-context";
 import type { ArrangedBot, PlaceBotRow, PlacesTogetherState } from "@/lib/places-together";
 
 const mode = vi.hoisted(() => ({ advanced: false }));
@@ -53,7 +54,8 @@ let hydrated = false;
 const tree = (bots: Bot[], icons = false) => createElement(BotEditorStore, {
   value: { state: { ...initialState, connected: true, bots, selectedId: bots[0]!.id, ...(hydrated ? { hydrated: true as const } : {}) }, dispatch,
     flushBotPatches: async () => null, refreshInstances: async () => {}, refreshModels: async () => {} },
-  children: createElement(Sidebar, { open: true, onClose: () => {}, collapseToIcons: icons }),
+  children: createElement(WorkspaceChatContext, { value: bots[0]!.threadId },
+    createElement(Sidebar, { open: true, onClose: () => {}, collapseToIcons: icons })),
 });
 async function render(bots = OWN, icons = false) {
   await act(async () => root.render(tree(bots, icons)));
@@ -147,9 +149,11 @@ describe("switch off: nothing changes", () => {
       const bots = [...OWN, bot("nova", { unread: true, tasks: [{ threadId: "nova-t", title: "Chat", createdAt: 1, unread: true }] })];
       const browser = await htmlWith(null, bots);
       answer = async () => said({ on: false, other: null });
+      const desktop = await htmlWith({}, bots);
       const off = await htmlWith({ placesTogether: page }, bots);
       answer = () => new Promise(() => {});
       const silent = await htmlWith({ placesTogether: page }, bots);
+      expect(off).toBe(desktop);
       expect(silent).toBe(off);
       expect(browser).toContain('data-sidebar-bot-row="git"');
       expect(browser).not.toContain('data-sidebar-bot-row="cloud:scout"');
@@ -279,6 +283,22 @@ describe("switch on: one list", () => {
     expect(q('[data-sidebar-bot-row="git"]')!.getAttribute("aria-label")).toContain("Lives on this computer");
   });
 
+  it("local rows can be dragged to a workspace pane; a placed row carries only the sidebar move", async () => {
+    window.ogb = { placesTogether: page } as never;
+    await render();
+    const payload = (id: string) => {
+      const from = dragHost(id)!, carried = transfer();
+      fire(from, "dragstart", carried);
+      fire(from, "dragend", carried);
+      return carried;
+    };
+    const paneType = "application/x-openmaus-workspace-thread";
+    expect(payload("git").getData(paneType)).toBe("git-t");
+    const remote = payload("cloud:scout");
+    expect(remote.types).not.toContain(paneType);
+    expect([...remote.data.values()]).toContain("cloud:scout");
+  });
+
   it("dragging a Cloud bot into another department keeps it there through a restart, and My Cloud's page draws the same list; this computer's server never hears of it", async () => {
     window.ogb = { placesTogether: page } as never;
     const own = [...OWN, bot("finn", { section: "Finance" })];
@@ -304,17 +324,20 @@ describe("switch on: one list", () => {
     await act(async () => root.unmount());
     resetPlacesTogetherForTest(); resetPlaceRowsForTest();
     root = createRoot(host);
-    const cloudBots = [bot("maus", { chiefOfStaff: true }), bot("scout"), bot("atlas")];
-    const offline = await htmlWith({}, cloudBots);
-    answer = async () => said({ here: "cloud", other: { home: "computer", state: "ready", bots: [row("git", { home: "computer", unread: true }), row("ledger", { home: "computer" })] } });
-    const cloudPage = await htmlWith({ placesTogether: page }, cloudBots);
-    answer = async () => said({ here: "cloud", other: { home: "computer", state: "offline", bots: [] } });
-    const cloudPageOffline = await htmlWith({ placesTogether: page }, cloudBots);
-    expect(cloudPage).toBe(offline);
-    expect(cloudPageOffline).toBe(offline);
-    expect(cloudPage).not.toContain("computer:");
-    expect(cloudPage).not.toContain("data-bot-place");
-    expect(cloudPage).not.toContain("data-other-place");
+    answer = async () => said({ arranged });
+    await render(own);
+    expect(drawn()).toEqual(afterDrag);
+    // The window goes to My Cloud's page: the same list, this computer's bots as rows there.
+    await act(async () => root.unmount());
+    resetPlacesTogetherForTest(); resetPlaceRowsForTest();
+    root = createRoot(host);
+    answer = async () => said({ here: "cloud", home: "computer", arranged, other: { home: "computer", state: "ready", sections: ["Finance"], bots: [row("git", { home: "computer" }), row("ledger", { home: "computer" }), row("finn", { home: "computer", section: "Finance" })] } });
+    await render([bot("maus", { chiefOfStaff: true }), bot("scout", { title: "Open issues" }), bot("tech")]);
+    expect(drawn()).toEqual(afterDrag);
+    // Only My Cloud's own bots can be moved from this page. The departments belong to the computer.
+    expect(dragHost("computer:git")).toBeNull();
+    expect(dragHost("scout")).not.toBeNull();
+    expect(q('[data-section="Finance"] [aria-haspopup="menu"]')).toBeNull();
   });
 
   it("before this page's store has loaded, a Cloud bot is drawn in the department it was kept in, and a drag writes only the bot moved", async () => {
@@ -439,13 +462,13 @@ describe("switch on: one list", () => {
     expect(ids('[data-sidebar-section-id="section:Finance"]')).toContain("finn");
   });
 
-  it("an older app that does not say which place is home leaves My Cloud's page as it was: its own bots only", async () => {
+  it.each(["ready", "offline"] as const)("an older desktop app that does not say which place is home leaves My Cloud's page local-only when this computer is %s", async (state) => {
     const cloudBots = [bot("maus", { chiefOfStaff: true }), bot("scout", { section: "Research" }), bot("atlas")];
-    const browser = await htmlWith(null, cloudBots);
-    answer = async () => said({ here: "cloud", other: { home: "computer", state: "ready", bots: [row("git", { home: "computer" }), row("ledger", { home: "computer" })] } });
+    const desktop = await htmlWith({}, cloudBots);
+    answer = async () => said({ here: "cloud", other: { home: "computer", state, bots: state === "offline" ? [] : [row("git", { home: "computer" }), row("ledger", { home: "computer" })] } });
     const { arrange: _newer, ...older } = page;
-    expect(await htmlWith({ placesTogether: older }, cloudBots)).toBe(browser);
-    expect(browser).toContain("Research");
+    expect(await htmlWith({ placesTogether: older }, cloudBots)).toBe(desktop);
+    expect(desktop).toContain("Research");
   });
 
   it("the place's own department, which only the app keeps, offers no menu item that would name it to this computer's server", async () => {

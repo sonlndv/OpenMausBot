@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef } from "react";
 import { cn } from "@/lib/cn";
 import { useInboxPanel } from "@/state/inbox";
 import { currentTaskBot, useStore, type AppState, type Bot, type Group, type GroupTask, type Task } from "@/state/store";
-import { useStoreDispatch } from "@/state/store-select";
+import { sameFields, useStoreDispatch, useStoreSelector } from "@/state/store-select";
 import { t } from "@/lib/i18n";
 import { ChatView } from "./ChatView";
 import { GroupView } from "./GroupView";
@@ -36,9 +36,11 @@ export function ForkPanel({ full = false }: { full?: boolean }) {
     focusedLoad.current = panel.loadId;
     (aside.querySelector<HTMLTextAreaElement>('[data-tour="composer"] textarea:not([disabled])') ?? aside).focus();
   }, [panel?.focusComposer, panel?.loadId, panel?.loading]);
-  if (!panel) return null;
-  const owner = panelOwner(state, panel);
-  const { bot, group, groupTask } = owner;
+  const owner = panel ? panelOwner(state, panel) : undefined;
+  const group = owner?.group, groupTask = owner?.groupTask;
+  const work = useRoomWorkStatuses(beside && groupTask && !groupTask.origin && !group?.dm ? group?.id : null, state.bots);
+  if (!panel || !owner) return null;
+  const { bot } = owner;
   const task = owner.botTask ?? groupTask;
   const fork = !beside || Boolean(task?.origin);
   const label = fork ? t("chat.forkPanel") : t("room.thread.panel");
@@ -72,7 +74,7 @@ export function ForkPanel({ full = false }: { full?: boolean }) {
         <header className="flex shrink-0 items-center gap-2 py-2.5 ps-4 pe-3">
           {inPlace && group && <button type="button" aria-label={t("room.thread.backToFeed", { name: group.name })} title={t("room.thread.backToFeed", { name: group.name })}
             data-thread-back="" className="ui-icon-button shrink-0" onClick={close}><ArrowLeft size={16} aria-hidden="true" /></button>}
-          {!fork && group && groupTask ? <ThreadPanelHeading group={group} task={groupTask} messages={panel.messages} working={Boolean(groupTask.working || groupTask.busyBotId)} /> : <div className="min-w-0 flex-1">
+          {!fork && group && groupTask ? <ThreadPanelHeading group={group} task={groupTask} messages={panel.messages} working={Boolean(groupTask.working || groupTask.busyBotId)} work={work.get(panel.threadId)} /> : <div className="min-w-0 flex-1">
             <h2 dir="auto" title={task?.title} className="truncate text-[15px] font-semibold leading-5 text-ink">{fork ? task?.title ?? label : label}</h2>
             <p dir="auto" className="truncate text-[12px] leading-4 text-ink-secondary">{group?.name ?? bot?.name}</p>
           </div>}
@@ -110,8 +112,8 @@ function panelOwner(state: AppState, panel: ForkPanelState): PanelOwner {
 
 /** A tiled pane supplies its own frame and keeps its room controls, even on servers with room feeds. */
 export function PanelChat({ panel }: { panel: ForkPanelState }) {
-  const { state } = useStore();
-  return <PanelBody panel={panel} owner={panelOwner(state, panel)} tiled />;
+  const owner = useStoreSelector(state => panelOwner(state, panel), sameFields);
+  return <PanelBody panel={panel} owner={owner} tiled />;
 }
 
 function PanelBody({ panel, owner, bare = false, tiled = false }: {

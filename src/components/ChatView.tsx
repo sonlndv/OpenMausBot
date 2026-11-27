@@ -745,7 +745,7 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
   const headTabs = useThreadTabsShown() && !inForkPanel && !paneTitle;
   useTabsFrameOnRoot(headTabs ? (simpleHead ? "simple" : "advanced") : undefined);
   const canWrite = useCanWriteIn(bot.threadId, bot.yourAccess), mayWrite = canWrite !== false;
-
+  const placed = isPlaceId(bot.id);
   const computerStarting = computerStartLine(state.computerStart, bot.name); useScreensWhile(Boolean(computerStarting));
   const mascotMotion = state.mascotMotion;
   const [findOpen, setFindOpen] = useState(false);
@@ -951,7 +951,7 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
                   }
                 }}
                 onActivate={() => dispatch({ type: "toggleSettings", open: true })}
-                showEditButton editable={!isPlaceId(bot.id)}
+                showEditButton editable={!placed}
                 className="truncate text-[14px] font-semibold text-ink"
                 editButtonClassName="size-6 rounded-full"
                 inputClassName="max-w-[220px] rounded-full bg-inset px-2 py-0.5 text-[14px] font-semibold"
@@ -1005,9 +1005,9 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
             </button>
           )}
           <ThreadContextWarning bot={bot} messages={messages} />
-          {phone && <UsageAlert engine={bot.modelSelection?.instanceId} />}
+          {phone && !placed && <UsageAlert engine={bot.modelSelection?.instanceId} />}
           {/* Simple mode keeps the model here and moves only ⋯ into the bot panel; Advanced shows it under the composer's field. */}
-          {!compactHeader && (!advanced || canWrite === false) && <ModelPicker key={bot.threadId} bot={bot} threadId={bot.threadId} folded={state.settingsOpen || state.computerOpen} />}
+          {!compactHeader && (!advanced || canWrite === false) && (placed ? <PlacedModelPill bot={bot} /> : <ModelPicker key={bot.threadId} bot={bot} threadId={bot.threadId} folded={state.settingsOpen || state.computerOpen} />)}
           <LiveCallChip currentBotId={bot.id} onOpen={(botId, threadId) => openThread(dispatch, { botId, threadId }, store.state(), showThreads)} />{!compactMenu && <WatchScreenButton botId={bot.id} messages={messages} liveTools={liveTools} place={place} />}
           <PinnedMessagesMenu
             pins={pinnedPreview(messages, bot.pinnedMessageId, bot.name)}
@@ -1015,7 +1015,7 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
             onJump={(messageId) => dispatch({ type: "focusMessage", threadId: bot.threadId, messageId })}
             onUnpin={remoteClient ? undefined : () => dispatch({ type: "updateTask", botId: bot.id, threadId: bot.threadId, patch: { pinnedMessageId: "" } })}
           />
-          {!compactMenu && <button
+          {!compactMenu && !placed && <button
             data-tour="computer"
             onClick={(event) => { if (!state.computerOpen) rememberComputerPanelOpen({ botId: bot.id, opener: event.currentTarget, tabs: event.detail === 0 }); dispatch({ type: "toggleComputer" }); }}
             className={cn(
@@ -1027,7 +1027,7 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
           >
             <Monitor size={16} />{busy && place === "browser" && <span aria-hidden="true" className="absolute right-1 top-1 size-1.5 animate-pulse rounded-full bg-success" data-testid="computer-button-live" />}
           </button>}
-          <HeaderShare bot={bot} />{!inForkPanel && <NewThreadHeaderButton botId={bot.id} tabs={headTabs} switcher={pillSwitcher} />}{compactMenu ? <ChatMoreMenu bot={bot} phoneHeader /> : (advanced || remoteClient) && <ChatHeaderMenu key={`menu:${bot.threadId}`} bot={bot} />}
+          {!placed && <HeaderShare bot={bot} />}{!inForkPanel && <NewThreadHeaderButton botId={bot.id} tabs={headTabs} switcher={pillSwitcher} />}{!placed && (compactMenu ? <ChatMoreMenu bot={bot} phoneHeader /> : (advanced || remoteClient) && <ChatHeaderMenu key={`menu:${bot.threadId}`} bot={bot} />)}
         </div>
         </div>
       </div>

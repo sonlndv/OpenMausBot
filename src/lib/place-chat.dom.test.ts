@@ -45,7 +45,7 @@ beforeEach(async () => {
     const body = url.startsWith("/api/bots/cloud%3Ascout") ? { bot: scout } : url.startsWith("/api/bots?") || url === "/api/bots" ? { bots: [ledger, { ...ledger, id: "git", name: "Git", threadId: "g1", tasks: [{ threadId: "g1", title: "Notes", createdAt: 1 }] }], groups: [], sections: [], botQueuedMessages: {}, computerControl: {} } : {};
     return new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
   });
-  window.ogb = { placesTogether: { openInPlace: async () => ({ ok: true }), open: vi.fn(async () => true) } } as never;
+  window.ogb = { platform: "linux", placesTogether: { openInPlace: async () => ({ ok: true }), open: vi.fn(async () => true) } } as never;
   root = createRoot(document.createElement("div"));
   await act(async () => root.render(createElement(StoreProvider, null, createElement(Reader), createElement(PlaceChatKeeper))));
   await act(async () => local().say({ kind: "hello", cursor: "s:1", resumed: false }));
@@ -105,7 +105,7 @@ it("My Cloud going to sleep closes its stream quietly; the person's next click o
 
 it("a click overtaken by the person choosing something else lands nowhere", async () => {
   let release!: (value: { ok: boolean }) => void;
-  window.ogb = { placesTogether: { openInPlace: () => new Promise((done) => { release = done; }), open: vi.fn(async () => true) } } as never;
+  window.ogb = { ...window.ogb, placesTogether: { openInPlace: () => new Promise((done) => { release = done; }), open: vi.fn(async () => true) } } as never;
   let opened: Promise<string> | undefined;
   await act(async () => { opened = openPlaceBot("scout", store.dispatch); });
   await act(async () => store.dispatch({ type: "select", id: "git" }));
