@@ -36,7 +36,7 @@ try {
   await page.send("Page.navigate", { url: `${url}/pair` });
   await page.until("document.body.textContent.includes('Connect')");
   assert.equal(await page.evaluate(`fetch('/api/auth/pair',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({code:${JSON.stringify(pairing.code)},cookie:true})}).then(r=>r.ok)`), true);
-  await page.send("Page.navigate", { url: `${url}/?liveTransport=auto` });
+  await page.send("Page.navigate", { url: `${url}/` });
   await page.until("feedEvents.some(e=>e.frame.kind==='hello')");
   async function selectBot() {
     await page!.until(`document.querySelector('[data-sidebar-bot-row="${bot.id}"]')`);
@@ -84,7 +84,7 @@ try {
   console.log("PASS: built browser delivered WebSocket reply, replayed after mid-reply disconnect, and delivered SSE fallback; stored replies match the UI and each user message was sent once.");
   if (process.argv.includes("--serve")) {
     const userPairing = await api("POST", "/api/auth/pairing", { scopes: ["client"] });
-    console.log(JSON.stringify({ url: `${url}/pair?next=%2F%3FliveTransport%3Dauto#code=${encodeURIComponent(userPairing.code)}`, dataDir, logPath: fixture.info.logPath }));
+    console.log(JSON.stringify({ url: `${url}/pair#code=${encodeURIComponent(userPairing.code)}`, dataDir, logPath: fixture.info.logPath }));
     await parkUntilSignal();
   }
 } finally {

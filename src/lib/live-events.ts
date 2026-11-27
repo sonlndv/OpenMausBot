@@ -185,7 +185,7 @@ function browserPlatform(overrides: Partial<LiveEventsPlatform>): LiveEventsPlat
   const browserDocument = globalThis.document;
   return {
     createEventSource,
-    createWebSocket: overrides.createWebSocket ?? (!overrides.createEventSource && !browserFellBack && browserWindow && !browserWindow.ogb?.platform && !relayLink() && new URLSearchParams(browserWindow.location.search).get("liveTransport") === "auto" && globalThis.WebSocket ? websocketEvents : undefined),
+    createWebSocket: overrides.createWebSocket ?? (!overrides.createEventSource && !browserFellBack && browserWindow && !browserWindow.ogb?.platform && !relayLink() && new URLSearchParams(browserWindow.location.search).get("liveTransport") !== "sse" && globalThis.WebSocket ? websocketEvents : undefined),
     onTransportFallback: overrides.onTransportFallback ?? (() => { browserFellBack = true; }),
     windowTarget:
       overrides.windowTarget ??
