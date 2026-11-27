@@ -528,6 +528,17 @@ describe("a run that waits on the person", () => {
 });
 
 describe("Automation output", () => {
+  it("opens Output from Automations in the desktop client", () => {
+    vi.stubGlobal("ogb", { remoteClient: { active: true } });
+    try {
+      const page = mount(createElement(TriggersPage, { onBack: vi.fn(), onOpenRoom: vi.fn() }));
+      flushSync(() => button(page, "Output").click());
+      expect(fixture.dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: "showRoutines", view: "output" }));
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("shows the delivered file when the scheduled reply has no text", async () => {
     const { AutomationOutput } = await import("./AutomationOutput");
     fixture.state = {

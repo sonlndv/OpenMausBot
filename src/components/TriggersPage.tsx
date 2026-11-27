@@ -3,7 +3,6 @@ import { Plus, Zap } from "lucide-react";
 
 import { automationsFrom, automationSentence, automationStatus, orderAutomations, runLine, statusLine, type Automation } from "@/lib/automations";
 import { cn } from "@/lib/cn";
-import { browserSidebar } from "@/lib/thread-fold-preferences";
 import { t } from "@/lib/i18n";
 import { isRoutineProblemRun } from "@/lib/routines";
 import { saveWebhookCredential, webhookCredentialStore } from "@/lib/webhook-credentials";
@@ -30,6 +29,7 @@ import { schedulableBots, useTeamPeople } from "@/state/team-people";
 
 /** The bot filter earns its place only on a long list shared by several bots. */
 const FILTER_FROM = 9;
+const AUTOMATION_VIEWS = ["list", "calendar", "output"] as const;
 const NO_BOTS: Bot[] = [];
 
 /** Automations: every schedule and every "when another app sends something", each as one plain sentence. */
@@ -45,7 +45,6 @@ export function TriggersPage({ onBack, onOpenRoom }: { onBack: () => void; onOpe
   const focus = state.routinesFocus;
   const view = focus?.view ?? "list";
   const outputDetail = view === "output" && Boolean(focus?.runId);
-  const views = browserSidebar() ? (["list", "calendar", "output"] as const) : (["list", "calendar"] as const);
   const [openId, setOpenId] = useState<string | null>(focus?.section !== "logs" ? focus?.routineId ?? null : null);
   const [botFilter, setBotFilter] = useState(focus?.botId ?? "all");
   const [department, setDepartment] = useState("all");
@@ -90,7 +89,7 @@ export function TriggersPage({ onBack, onOpenRoom }: { onBack: () => void; onOpe
     <ToolPage>
       <ToolPageHeader backLabel={t("automations.back")} onBack={onBack} backRef={backButtonRef} besideSidebar={view !== "calendar"}>
           <h1 data-tour="automations-page" className={TOOL_PAGE_TITLE}>{t("automations.title")}</h1>
-          <ToolPageActions className={browserSidebar() ? "max-w-full flex-wrap gap-2" : undefined}>
+          <ToolPageActions className="max-w-full flex-wrap gap-2">
             {showDepartments && !outputDetail && (
               <Select size="sm" aria-label={t("automations.allDepartments")} value={activeDepartment} onChange={(event) => { setDepartment(event.target.value); setBotFilter("all"); }} className="max-w-[180px]">
                 <option value="all">{t("automations.allDepartments")}</option>
@@ -105,7 +104,7 @@ export function TriggersPage({ onBack, onOpenRoom }: { onBack: () => void; onOpe
               </Select>
             )}
             <div role="group" aria-label={t("automations.view")} className="flex items-center rounded-lg border border-hairline/50 bg-panel p-0.5">
-              {views.map((option) => (
+              {AUTOMATION_VIEWS.map((option) => (
                 <button key={option} type="button" aria-pressed={view === option} onClick={() => dispatch({ type: "showRoutines", view: option, botId: botFilter === "all" ? undefined : botFilter })}
                   className={cn("rounded-md px-3 py-1 text-[13px] font-medium", view === option ? "bg-raised text-ink shadow-sm" : "text-ink-secondary hover:text-ink")}>
                   {t(option === "output" ? "automations.output.tab" : `automations.${option}`)}
