@@ -40,7 +40,7 @@ import { cancelUnfinishedRuns, interruptRunTurns } from "./routine-stops.ts";
 import { sanitizeInput } from "./routine-input.ts";
 import { applyCheckResult, codedLine, keptRunOutput, routineLine, runLineFields, type RoutineLine, type RoutineLineCodes, type RoutineTroubleCode } from "./routine-lines.ts";
 import { checkHold, CHECK_BOOT_HOLD_MS, type CheckHold } from "./routine-check-pacing.ts";
-import { resolveRoutineResultsThread, routineRunDefinition, type ResultsThreadAllocation } from "./routine-run-definition.ts";
+import { applyResultsInput, resolveRoutineResultsThread, routineRunDefinition, type ResultsThreadAllocation } from "./routine-run-definition.ts";
 
 export type { RoutineContextAttachment, RoutineIntervalWindow, RoutineRunStatus, RoutineRunTrigger };
 export { intervalHasRestrictions } from "./routine-intervals.ts";
@@ -246,10 +246,12 @@ export interface RoutineManagerOptions {
   joinConversation?: (run: RoutineRun) => string | null;
   createGoalTask?: (groupId: string, title: string) => { threadId: string } | null;
   isResultsThread?: (botId: string, threadId: string) => boolean;
-  resolveResultsThread?: (routine: Routine, forceNew: boolean) => { threadId: string; main?: true } | undefined;
+  resolveResultsThread?: (routine: Routine, forceNew: boolean) => { threadId: string; main?: true; pinnedMissing?: true } | undefined;
   eventResultsThread?: (event: { webhookId: string; webhookName: string; botId: string }) => string | undefined;
   frozenResultsThread?: (botId: string, threadId: string) => boolean;
   discardResultsThread?: (botId: string, threadId: string) => void;
+  /** A results thread of this automation's own, opened once at save; undefined where the server does not offer one. */
+  createResultsThread?: (routine: Routine) => string | undefined;
   startTurn: (
     botId: string,
     threadId: string,
@@ -576,7 +578,7 @@ export class RoutineManager {
       createdAt: at,
       updatedAt: at,
     };
-    const discardResults = this.applyResultsInput(routine, input.resultsThreadId);
+    const discardResults = applyResultsInput(routine, input.resultsThreadId, this.options);
     this.commitMutation(() => {
       this.routines.unshift(routine);
       if (request) this.rememberRoutineRequest(request, routine.id, at);
@@ -637,7 +639,7 @@ export class RoutineManager {
     }
     const destination = { ...routine, ...clean };
     if (destination.botId !== routine.botId) delete destination.resultsThreadId;
-    const discardResults = this.applyResultsInput(destination, patch.resultsThreadId);
+    const discardResults = applyResultsInput(destination, patch.resultsThreadId, this.options);
     let stopped: ReturnType<typeof cancelUnfinishedRuns> | undefined;
     this.commitMutation(() => {
       Object.assign(routine, clean, {
@@ -1450,28 +1452,6 @@ export class RoutineManager {
         console.error("routine: could not discard uncommitted results thread", error);
       }
     }
-  }
-
-  private applyResultsInput(routine: Routine, value: RoutineInput["resultsThreadId"]) {
-    if (routine.target !== "bot") {
-      if (value != null) throw Object.assign(new Error("Results threads are only available for bot routines"), { status: 400 });
-      delete routine.resultsThreadId;
-      return;
-    }
-    if (value === undefined) return;
-    if (value === null) {
-      const destination = this.options.resolveResultsThread?.(routine, true);
-      if (!destination || destination.main) {
-        delete routine.resultsThreadId;
-        return;
-      }
-      routine.resultsThreadId = destination.threadId;
-      return () => this.options.discardResultsThread?.(routine.botId, destination.threadId);
-    }
-    if (typeof value !== "string" || !value.trim() || !this.options.isResultsThread?.(routine.botId, value.trim())) {
-      throw Object.assign(new Error("Choose a visible results thread belonging to this bot"), { status: 400 });
-    }
-    routine.resultsThreadId = value.trim();
   }
 
   private emitRoutine(routine: Routine) {

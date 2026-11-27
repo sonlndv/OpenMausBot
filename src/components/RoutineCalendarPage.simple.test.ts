@@ -279,11 +279,11 @@ describe("routine editor", () => {
     seed: { kind: "routine", at: Date.now() + 3_600_000, durationMinutes: 30, botIds: [bot.id], routine: routineToEdit },
     bots: [bot], onClose: vi.fn(), onSavedCall: vi.fn(),
   }));
-  const hidden = ['<select aria-label="Repeat"', "Routine safety limit", "Runs the whole job on the bot&#x27;s cloud desktop", "Add attachment", "Post future results to", "Routine type"];
+  const hidden = ['<select aria-label="Repeat"', "Routine safety limit", "Runs the whole job on the bot&#x27;s cloud desktop", "Add attachment", "Routine type"];
 
   it("keeps Simple mode to the basics with everything else behind More options", () => {
     const html = editor();
-    for (const text of ["New routine", 'placeholder="What should happen?"', "Who does it", "When", "Once", "Every day", "Weekdays", "Every week", "More options"]) {
+    for (const text of ["New routine", 'placeholder="What should happen?"', "Who does it", "When", "Once", "Every day", "Weekdays", "Every week", "More options", "Post future results to"]) {
       expect(html, text).toContain(text);
     }
     expect(html).toContain('aria-expanded="false"');
@@ -379,11 +379,30 @@ describe("routine editor", () => {
   });
 
   it("shows a routine with no thread of its own reporting into the bot's main thread", () => {
-    fixture.advanced = true;
     const { resultsThreadId: _chosen, ...unchosen } = routine;
-    const destination = (html: string) => html.slice(html.indexOf("Post future results to")).match(/^[\s\S]*?<\/select>/)![0];
-    expect(destination(editor(unchosen))).toContain('<option value="new" selected="">Bot’s default chat</option>');
-    expect(destination(editor(routine))).toContain('<option value="brief-thread" selected="">Morning briefs</option>');
+    expect(editor(unchosen)).toContain("Bot’s default chat");
+    expect(editor(routine)).toContain("Morning briefs");
+  });
+
+  it("sends the destination only when it was chosen, so editing another field never changes it", async () => {
+    const props = { seed: { kind: "routine" as const, at: Date.now() + 3_600_000, durationMinutes: 30, botIds: [bot.id], routine }, bots: [bot], onClose: vi.fn(), onSavedCall: vi.fn() };
+    fixture.values = [];
+    let tree = capture(() => EventEditor(props));
+    const title = tree.find((node) => node.type === "input" && node.props["aria-label"] === "Title")!;
+    (title.props.onChange as (event: unknown) => void)({ target: { value: "Evening brief" } });
+    tree = capture(() => EventEditor(props));
+    click(buttons(tree).get("Save"));
+    await vi.waitFor(() => expect(fixture.api).toHaveBeenCalled());
+    const [, renamed] = fixture.api.mock.calls.at(-1) as unknown as [string, { body: string }];
+    expect(JSON.parse(renamed.body)).not.toHaveProperty("resultsThreadId");
+    expect(JSON.parse(renamed.body)).toMatchObject({ name: "Evening brief" });
+
+    (tree.find(named("ResultsDestination"))!.props.onChange as (threadId: string | null) => void)("new-thread");
+    tree = capture(() => EventEditor(props));
+    click(buttons(tree).get("Save"));
+    await vi.waitFor(() => expect(fixture.api.mock.calls.length).toBeGreaterThan(1));
+    const [, chosen] = fixture.api.mock.calls.at(-1) as unknown as [string, { body: string }];
+    expect(JSON.parse(chosen.body)).toMatchObject({ resultsThreadId: "new-thread" });
   });
 
   it("leaves the Advanced editor as it was", () => {
@@ -424,7 +443,7 @@ describe("a new routine's audience on a team's Cloud", () => {
     const html = form.html();
     expect(html).toContain('data-routine-audience="me"');
     expect(html).toContain("Private · only you");
-    expect(html, "More options stays closed").not.toContain("Post future results to");
+    expect(html, "visible without opening More options").toContain("Post future results to");
     opened(quotes);
     expect(opened(quotes).saved().resultsThreadId).toBe("just-me");
   });

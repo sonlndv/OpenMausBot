@@ -18,7 +18,7 @@ const APP_ONLY = ["app", "event", "account"] as const;
 const SAME_CONVERSATION_ONLY = "same_conversation applies only to when=app_event, when=webhook or when=schedule.";
 const REQUEST_ROUTE = "/api/internal/trigger-requests";
 const TAKES = () => ` trigger takes ${argumentNames(fullInputSchema("trigger"))}.`;
-const SCHEDULE_ONLY = ["schedule", "timeout_minutes", "timeoutMinutes", "clear_timeout", "continuity", "overlap", "run_on_startup", "runOnStartup"] as const;
+const SCHEDULE_ONLY = ["schedule", "timeout_minutes", "timeoutMinutes", "clear_timeout", "continuity", "overlap", "run_on_startup", "runOnStartup", "post_results_to"] as const;
 
 function jsonRecord(value: unknown): value is Json {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -252,6 +252,9 @@ function routineFields(args: Json): { fields: Json; error?: string } {
   if (args.overlap !== undefined && args.overlap !== "skip" && args.overlap !== "queue") {
     return { fields, error: "overlap must be skip or queue." };
   }
+  if (args.post_results_to != null && args.post_results_to !== "default_chat" && args.post_results_to !== "this_chat" && args.post_results_to !== "new_thread") {
+    return { fields, error: "post_results_to must be default_chat, this_chat or new_thread." };
+  }
   if (args.clear_timeout != null && typeof args.clear_timeout !== "boolean") {
     return { fields, error: "clear_timeout must be true or false." };
   }
@@ -271,6 +274,7 @@ function routineFields(args: Json): { fields: Json; error?: string } {
   if (typeof args.continuity === "boolean") fields.continuity = args.continuity;
   if (args.overlap !== undefined) fields.overlap = args.overlap;
   if (typeof runOnStartup === "boolean") fields.runOnStartup = runOnStartup;
+  if (args.post_results_to != null) fields.results = args.post_results_to;
   return { fields };
 }
 
@@ -480,7 +484,7 @@ async function createTrigger(args: Json, forBotId: string | undefined, context: 
     return request({ action: "create", kind: "app", trigger, ...(forBotId ? { forBotId } : {}) }, context, `Created the app-event trigger “${String(fields.name)}”`);
   }
   if (when === "limit_reset") {
-    const misplaced = ["schedule", "webhook_event_types", "webhook_payload_filter", "run_on_startup", "runOnStartup"].find((key) => args[key] !== undefined && args[key] !== null);
+    const misplaced = ["schedule", "webhook_event_types", "webhook_payload_filter", "run_on_startup", "runOnStartup", "post_results_to"].find((key) => args[key] !== undefined && args[key] !== null);
     if (misplaced) return { text: `A limit-reset trigger runs when the engine's limit resets, so it takes no ${misplaced}.`, isError: true };
     const timing = limitResetSchedule(args.engine, args.repeat);
     if (timing.error) return { text: timing.error, isError: true };

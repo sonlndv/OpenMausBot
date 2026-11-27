@@ -16,6 +16,7 @@ import {
   type RoutineToolScheduleInput,
 } from "./routine-request-schemas.ts";
 import { runsOnce } from "../shared/limit-reset.ts";
+import { RESULTS_NEW_THREAD } from "../shared/routines.ts";
 import { limitResetOccurrence, noFutureResumeMessage } from "./routine-schedules.ts";
 import {
   intervalHasRestrictions,
@@ -372,7 +373,7 @@ function normalizeDefinition(input: RoutineToolDefinitionInput, now: number, own
     ...(timeoutMinutes == null ? {} : { timeoutMinutes }),
     ...(input.continuity === true ? { continuity: true } : {}), ...(input.sameConversation === true ? { sameConversation: true } : {}),
     ...(input.overlap === "queue" ? { overlap: "queue" as const } : {}),
-    ...(input.runOnStartup === true ? { runOnStartup: true } : {}),
+    ...(input.runOnStartup === true ? { runOnStartup: true } : {}), ...(input.results ? { results: input.results } : {}),
   };
 }
 
@@ -386,7 +387,7 @@ function normalizeChanges(input: RoutineToolChangesInput, now: number, ownEngine
   if (input.timeoutMinutes !== undefined) changes.timeoutMinutes = timeout(input.timeoutMinutes);
   if (input.continuity !== undefined) changes.continuity = input.continuity === true; if (input.sameConversation !== undefined) changes.sameConversation = input.sameConversation === true;
   if (input.overlap !== undefined) changes.overlap = input.overlap;
-  if (input.runOnStartup !== undefined) changes.runOnStartup = input.runOnStartup === true;
+  if (input.runOnStartup !== undefined) changes.runOnStartup = input.runOnStartup === true; if (input.results !== undefined) changes.results = input.results;
   return changes;
 }
 
@@ -698,6 +699,7 @@ function cardCopy(
       ...(definition.runOnStartup || (operation.action === "update" && operation.changes.runOnStartup !== undefined)
         ? [`On startup: ${definition.runOnStartup ? "Also runs once each time OpenMausBot starts" : "Runs only on its schedule"}`]
         : []),
+      ...(definition.results ? [`Results: ${definition.results === "this_chat" ? "this chat" : definition.results === "new_thread" ? "a new results thread" : "the bot's default chat"}`] : []),
       ...(operation.action === "create" || operation.action === "update"
         ? [consequenceLine(definition.schedule, Boolean(definition.continuity), Boolean(definition.sameConversation), language)]
         : []),
@@ -710,7 +712,12 @@ function cardCopy(
   };
 }
 
-function inputFromDefinition(definition: RoutineRequestDefinition, botId: string, now: number): RoutineInput {
+/** this_chat pins the proposing conversation; the manager validates and may refuse the destination. */
+function resultsThreadId(results: RoutineRequestDefinition["results"], proposedFrom: string): string | null {
+  return results === "default_chat" ? null : results === "new_thread" ? RESULTS_NEW_THREAD : proposedFrom;
+}
+
+function inputFromDefinition(definition: RoutineRequestDefinition, botId: string, now: number, proposedFrom: string): RoutineInput {
   return {
     name: definition.name,
     prompt: definition.instructions,
@@ -722,15 +729,11 @@ function inputFromDefinition(definition: RoutineRequestDefinition, botId: string
     ...(definition.timeoutMinutes === undefined ? {} : { timeoutMinutes: definition.timeoutMinutes }),
     ...(definition.continuity ? { continuity: true } : {}), ...(definition.sameConversation ? { sameConversation: true } : {}),
     ...(definition.overlap === "queue" ? { overlap: "queue" as const } : {}),
-    ...(definition.runOnStartup ? { runOnStartup: true } : {}),
+    ...(definition.runOnStartup ? { runOnStartup: true } : {}), ...(definition.results === undefined ? {} : { resultsThreadId: resultsThreadId(definition.results, proposedFrom) }),
   };
 }
 
-function updateFromChanges(
-  changes: RoutineRequestChanges,
-  now: number,
-  currentSchedule: RoutineSchedule,
-): Partial<RoutineInput> {
+function updateFromChanges(changes: RoutineRequestChanges, now: number, currentSchedule: RoutineSchedule, proposedFrom: string): Partial<RoutineInput> {
   const patch: Partial<RoutineInput> = {};
   if (changes.name !== undefined) patch.name = changes.name;
   if (changes.instructions !== undefined) patch.prompt = changes.instructions;
@@ -740,7 +743,7 @@ function updateFromChanges(
   if (changes.timeoutMinutes !== undefined) patch.timeoutMinutes = changes.timeoutMinutes;
   if (changes.continuity !== undefined) patch.continuity = changes.continuity; if (changes.sameConversation !== undefined) patch.sameConversation = changes.sameConversation;
   if (changes.overlap !== undefined) patch.overlap = changes.overlap;
-  if (changes.runOnStartup !== undefined) patch.runOnStartup = changes.runOnStartup;
+  if (changes.runOnStartup !== undefined) patch.runOnStartup = changes.runOnStartup; if (changes.results !== undefined) patch.resultsThreadId = resultsThreadId(changes.results, proposedFrom);
   return patch;
 }
 
@@ -921,7 +924,7 @@ function restorePatch(before: RoutineRequestSnapshot, now: number): Partial<Rout
     timeoutMinutes: before.timeoutMinutes ?? null,
     continuity: before.continuity === true, sameConversation: before.sameConversation === true,
     overlap: before.overlap ?? "skip",
-    runOnStartup: before.runOnStartup === true,
+    runOnStartup: before.runOnStartup === true, resultsThreadId: before.resultsThreadId ?? null,
   };
 }
 
@@ -1387,11 +1390,7 @@ export class RoutineRequestService {
     const confirmationAt = this.now();
     switch (operation.action) {
       case "create":
-        return this.routines.create(inputFromDefinition(
-          operation.routine,
-          operation.forBot?.botId ?? payload.botId,
-          confirmationAt,
-        ), {
+        return this.routines.create(inputFromDefinition(operation.routine, operation.forBot?.botId ?? payload.botId, confirmationAt, payload.threadId), {
           requestId: payload.requestId,
           messageId,
           botId: payload.botId,
@@ -1404,7 +1403,7 @@ export class RoutineRequestService {
         const current = verifyManageSnapshot(operation, this.routines, operation.forBot?.botId ?? payload.botId);
         const updated = this.routines.update(
           operation.routineId,
-          updateFromChanges(operation.changes, confirmationAt, current.schedule),
+          updateFromChanges(operation.changes, confirmationAt, current.schedule, payload.threadId),
           {
             requestId: payload.requestId,
             messageId,

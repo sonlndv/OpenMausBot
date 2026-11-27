@@ -51,6 +51,7 @@ export const routineToolDefinitionSchema = z.object({
   sameConversation: z.boolean().optional(),
   overlap: z.enum(["skip", "queue"]).optional(),
   runOnStartup: z.boolean().optional(),
+  results: z.enum(["default_chat", "this_chat", "new_thread"]).optional(),
 }).strict();
 
 export const routineToolChangesSchema = routineToolDefinitionSchema
@@ -181,6 +182,7 @@ export const storedDefinitionSchema = z.object({
   sameConversation: z.boolean().optional(),
   overlap: z.enum(["skip", "queue"]).optional(),
   runOnStartup: z.boolean().optional(),
+  results: z.enum(["default_chat", "this_chat", "new_thread"]).optional(),
 }).strict();
 export const storedChangesSchema = storedDefinitionSchema
   .omit({ schedule: true, timeoutMinutes: true })

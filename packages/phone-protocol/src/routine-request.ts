@@ -63,6 +63,8 @@ export interface RoutineRequestDefinition {
   runOnStartup?: boolean;
   /** Each run continues the conversation the run before worked in. */
   sameConversation?: boolean;
+  /** Where runs report: the bot's default chat, the proposing conversation pinned, or a results thread of the automation's own. Missing keeps the current destination. */
+  results?: "default_chat" | "this_chat" | "new_thread";
 }
 
 export type RoutineRequestChanges =

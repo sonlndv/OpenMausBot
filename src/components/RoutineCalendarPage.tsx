@@ -339,9 +339,11 @@ export function EventEditor({
     ? toLocalDateInput(schedule.endsAt)
     : toLocalDateInput(addDays(startOfDay(Math.max(Date.now(), initialAt)), 7)));
   const [botIds, setBotIds] = useState(lockedBotId ? [lockedBotId] : existingRoutine ? [existingRoutine.botId] : existingCall?.botIds ?? seed.botIds);
-  const [resultsThreadId, setResultsThreadId] = useState<string | null | undefined>(() => (existingRoutine ? existingRoutine.resultsThreadId : seed.resultsThreadId ?? resultsOfPlace(state, botIds[0])) ?? null);
+  const [resultsThreadId, setResultsThreadIdState] = useState<string | null>(() => (existingRoutine ? existingRoutine.resultsThreadId : seed.resultsThreadId ?? resultsOfPlace(state, botIds[0])) ?? null);
+  const [resultsTouched, setResultsTouched] = useState(false); // Sent only when touched (or on create), so editing another field never changes a saved destination.
+  const setResultsThreadId = (threadId: string | null | undefined) => { setResultsTouched(true); setResultsThreadIdState(threadId ?? null); };
   const selectBots = (ids: string[]) => {
-    if (ids[0] !== botIds[0]) setResultsThreadId(resultsOfPlace(state, ids[0]) ?? null);
+    if (ids[0] !== botIds[0]) setResultsThreadId(resultsOfPlace(state, ids[0]));
     setBotIds(ids);
   };
   const [routineTarget, setRoutineTarget] = useState<RoutineTarget>(existingRoutine?.target ?? "bot");
@@ -496,7 +498,7 @@ export function EventEditor({
           continuity: routineTarget === "bot" && recurrence !== "none" && continuity,
           runOnStartup: recurrence !== "none" && runOnStartup,
           attachments: routineTarget === "room-goal" ? [] : attachments as RoutineContextAttachment[],
-          ...(routineTarget === "bot" ? { resultsThreadId } : {}),
+          ...(routineTarget === "bot" && (!existingRoutine || resultsTouched) ? { resultsThreadId } : {}),
         };
         const response = await editorRequest(existingRoutine ? `/api/routines/${existingRoutine.id}` : "/api/routines", { method: existingRoutine ? "PATCH" : "POST", body: JSON.stringify(input) });
         dispatch({ type: "routinePatched", routine: response.routine });
@@ -800,9 +802,8 @@ export function EventEditor({
             </span>
           </label>
         );
-  const resultsControl = kind === "routine" && !isRoomGoal && <div className={cn(advanced && "ml-8")}>
-            <ResultsDestination bot={bots.find((bot) => bot.id === botIds[0])} value={resultsThreadId} allowCurrent={Boolean(existingRoutine)} onChange={setResultsThreadId} />
-          </div>;
+  const resultsControl = kind === "routine" && !isRoomGoal &&
+          <div className={cn(advanced && "ml-8")}><ResultsDestination bot={bots.find((bot) => bot.id === botIds[0])} value={resultsThreadId} team={state.config?.team ? true : undefined} onChange={setResultsThreadId} /></div>;
   const attachmentsRow = (
           <div className="flex items-start gap-4">
             <Paperclip size={18} className="mt-2.5 shrink-0 text-ink-secondary" />
@@ -948,7 +949,6 @@ export function EventEditor({
             </div>
           </div>
 
-          {advanced && resultsControl}
           <div className="flex items-start gap-4">
             <FileText size={18} className="mt-2.5 shrink-0 text-ink-secondary" />
             <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} aria-label={t("routines.editor.descriptionLabel")} placeholder={isRoomGoal ? t("routines.goal.instructionsPlaceholder") : kind === "routine" ? (advanced ? t("routines.event.instructionsPlaceholder") : t("routines.editor.instructionsPlaceholder")) : t("routines.event.agendaPlaceholder")} className="min-w-0 flex-1 resize-y rounded-xl border border-hairline/50 bg-inset px-3.5 py-3 text-[13px] leading-relaxed text-ink outline-none placeholder:text-ink-tertiary focus:border-accent" />
@@ -981,13 +981,13 @@ export function EventEditor({
                     {repeatDetails}
                     {runLimitControls}
                   </div>
-                  {resultsControl}
                   {attachmentsRow}
                   {runOnRow}
                 </div>
               )}
             </div>
           )}
+          {resultsControl}
 
           {error && <div className="ml-10 flex items-start gap-2 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-[13px] text-danger"><CircleAlert size={15} className="mt-0.5 shrink-0" />{error}</div>}
         </div>
@@ -1139,7 +1139,7 @@ export function QuickComposer({
           <FileText size={16} className="mt-2.5 shrink-0 text-ink-secondary" />
           <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} aria-label={t("routines.editor.descriptionLabel")} placeholder={t(kind === "routine" ? "routines.quick.whatToDo" : "routines.quick.description")} className="min-w-0 flex-1 resize-none rounded-lg border border-hairline/50 bg-inset px-3 py-2 text-[13px] leading-relaxed text-ink outline-none placeholder:text-ink-tertiary focus:border-accent" />
         </div>
-        {kind === "routine" && <ResultsDestination bot={bots.find((bot) => bot.id === botIds[0])} value={resultsThreadId} onChange={(threadId) => setResultsThreadId(threadId ?? null)} />}{kind === "routine" && <RoutineAudience team={state.config?.team} bot={bots.find((bot) => bot.id === botIds[0])} value={resultsThreadId} />}
+        {kind === "routine" && <ResultsDestination bot={bots.find((bot) => bot.id === botIds[0])} value={resultsThreadId} team={state.config?.team ? true : undefined} onChange={(threadId) => setResultsThreadId(threadId ?? null)} />}{kind === "routine" && <RoutineAudience team={state.config?.team} bot={bots.find((bot) => bot.id === botIds[0])} value={resultsThreadId} />}
         {error && <div className="rounded-lg bg-danger/10 px-3 py-2 text-[12px] text-danger">{error}</div>}
       </div>
       <div className="flex items-center justify-end gap-2 border-t border-hairline/40 px-4 py-3">

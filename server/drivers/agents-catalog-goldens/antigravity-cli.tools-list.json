@@ -1381,6 +1381,14 @@
           "run_on_startup": {
             "type": "boolean"
           },
+          "post_results_to": {
+            "type": "string",
+            "enum": [
+              "default_chat",
+              "this_chat",
+              "new_thread"
+            ]
+          },
           "app": {
             "type": "string"
           },

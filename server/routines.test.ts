@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { GroupGoalRunStatus } from "../shared/group-goal-run.ts";
-import { isRoutineProblemRun } from "../shared/routines.ts";
+import { isRoutineProblemRun, RESULTS_NEW_THREAD } from "../shared/routines.ts";
 import { ROUTINE_SUPERSEDED } from "./routine-execution.ts";
 import { noStartSpacing } from "./routine-no-start.ts";
 import { RUN_PROGRESS_WINDOW_MS } from "./routine-progress-save.ts";
@@ -1134,6 +1134,62 @@ describe("persistent routine results destinations", () => {
     expect(h.manager.update(routine.id, { resultsThreadId: null })?.resultsThreadId).toBeUndefined();
     expect(JSON.parse(readFileSync(h.options.file!, "utf8")).routines[0]).not.toHaveProperty("resultsThreadId");
     expect(h.created()).toBe(0);
+  });
+
+  it("opens one dedicated thread for the new-thread choice at save and reuses it across runs", async () => {
+    const h = resultsHarness();
+    const fresh = vi.fn(() => { h.visible.set("fresh-1", "maus-1"); return "fresh-1"; });
+    h.options.createResultsThread = fresh;
+    const routine = h.manager.create({ ...input(), resultsThreadId: RESULTS_NEW_THREAD });
+    expect(routine.resultsThreadId).toBe("fresh-1");
+    const first = h.manager.runNow(routine.id)!;
+    await h.manager.tick();
+    complete(h, "thread-1");
+    const second = h.manager.runNow(routine.id)!;
+    expect([first.resultsThreadId, second.resultsThreadId]).toEqual(["fresh-1", "fresh-1"]);
+    expect(fresh).toHaveBeenCalledOnce();
+    expect(h.created()).toBe(0);
+  });
+
+  it("refuses the new-thread choice where the server offers none, changing nothing", () => {
+    const h = resultsHarness();
+    const routine = h.manager.create({ ...input(), resultsThreadId: "chosen" });
+    try { h.manager.update(routine.id, { resultsThreadId: RESULTS_NEW_THREAD }); throw new Error("expected rejection"); }
+    catch (error) { expect(error).toMatchObject({ status: 400, message: /not available here/ }); }
+    expect(h.manager.listRoutines()[0]?.resultsThreadId).toBe("chosen");
+    expect(() => h.manager.create({ ...input(), resultsThreadId: RESULTS_NEW_THREAD })).toThrow(/not available here/);
+    expect(h.manager.listRoutines()).toHaveLength(1);
+  });
+
+  it("discards the empty dedicated thread when the save cannot commit", () => {
+    const h = resultsHarness();
+    h.options.createResultsThread = () => { h.visible.set("fresh-1", "maus-1"); return "fresh-1"; };
+    const discard = vi.fn((_botId: string, threadId: string) => h.visible.delete(threadId));
+    h.options.discardResultsThread = discard;
+    rmSync(h.options.file!, { force: true });
+    mkdirSync(h.options.file!);
+    expect(() => h.manager.create({ ...input(), resultsThreadId: RESULTS_NEW_THREAD })).toThrow();
+    expect(h.manager.listRoutines()).toEqual([]);
+    expect(discard).toHaveBeenCalledExactlyOnceWith("maus-1", "fresh-1");
+    expect(h.visible.has("fresh-1")).toBe(false);
+  });
+
+  it("keeps a chosen destination whose chat is gone while runs report to the fallback", () => {
+    const h = resultsHarness();
+    h.options.resolveResultsThread = (routine, forceNew) => {
+      if (!forceNew && routine.resultsThreadId) {
+        return h.visible.get(routine.resultsThreadId) === routine.botId
+          ? { threadId: routine.resultsThreadId }
+          : { threadId: "main-chat", main: true, pinnedMissing: true };
+      }
+      return { threadId: "main-chat", main: true };
+    };
+    const routine = h.manager.create({ ...input(), resultsThreadId: "chosen" });
+    h.visible.delete("chosen");
+    expect(h.manager.runNow(routine.id)?.resultsThreadId).toBe("main-chat");
+    expect(h.manager.listRoutines()[0]?.resultsThreadId).toBe("chosen");
+    h.visible.set("chosen", "maus-1");
+    expect(h.manager.runNow(routine.id)?.resultsThreadId).toBe("chosen");
   });
 
   it("clears the default v0.1.98 to v0.1.107 saved as a destination once, and keeps a later pick of that thread", () => {

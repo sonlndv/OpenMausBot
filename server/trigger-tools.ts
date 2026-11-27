@@ -79,6 +79,7 @@ export function agentRoutine(routine: Routine, latestRun?: RoutineRun) {
     runOn: routine.runOn,
     durationMinutes: routine.durationMinutes,
     ...(routine.timeoutMinutes === undefined ? {} : { timeoutMinutes: routine.timeoutMinutes }),
+    ...(routine.resultsThreadId ? { resultsThreadId: routine.resultsThreadId } : {}),
     schedule: agentSchedule(routine.schedule),
     nextRunAt: timestamp(routine.nextRunAt),
     latestRun: latestRun ? agentRun(latestRun) : null,

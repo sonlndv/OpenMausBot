@@ -131,14 +131,24 @@ The final startup JSON includes the server `url`, `previewUrl`, `pepperId`,
    **Back to results**. **Run logs** retains the full execution history.
    A user follow-up sent in a completed execution makes it an ordinary visible
    thread; marking the older run seen must not hide that conversation again.
-10. In the routine editor, **Post results to** offers visible threads grouped by
-    folder or **The bot's main thread** (the default). Save to Fleet health
-    reports, reload, and confirm the selection persists. In quick create,
-    **More options** must preserve the chosen destination. Changing the owning
-    bot, including via Call/Team goal selectors, must reset a foreign destination.
-    Run a new routine twice: both reports use the chosen thread, while Run logs
-    links to two different executions. The default reports every run into the
-    bot's main thread and never creates a "· Results" thread.
+10. In the routine editor and in quick create, **Post results to** is one
+    compact row, the last field before Save, visible with **More options**
+    closed: the current destination in plain words and **Change**. Change
+    offers **Use default chat** (named), **Choose an existing thread…** (a
+    searchable, bounded list with each thread's folder, so duplicate titles
+    tell apart; arrows, Enter and Escape work, and Escape leaves the value
+    untouched) and **Create a dedicated results thread**, which the server
+    opens once at save — cancelling the form after choosing it creates
+    nothing. Save to Fleet health reports, reload, and confirm the selection
+    persists; a save that touched only other fields sends no destination.
+    Changing the owning bot, including via Call/Team goal selectors, must
+    reset a foreign destination. Run a new routine twice: both reports use the
+    chosen thread, while Run logs links to two different executions. The
+    default reports every run into the bot's main thread. A bot asked in chat
+    carries the person's answer as the trigger tool's `post_results_to`
+    (default chat, this chat, or a new results thread), shown on the card as
+    "Results: …"; on a Team Cloud the choices stay Just me and the shared
+    chat, and a new results thread is refused, never substituted.
 
 Every routine reports into its bot's main thread unless the user chooses another
 destination, whether it was made in a chat, the editor or the API, and whether a
@@ -157,7 +167,9 @@ cleared once on upgrade, also when it was archived since. On a Cloud home, a rou
 than the owner keeps its own results conversation, opened as theirs. Historical
 runs keep the destination they started with. If that destination is deleted,
 their execution threads become visible so results and approvals remain
-reachable; future runs report into the main thread. No existing user
+reachable; future runs report into the main thread while the automation keeps
+naming the missing thread, shown honestly in its editor, and reports there
+again if the thread comes back. No existing user
 conversation is silently deleted or filed.
 
 An unconfirmed proposal is not an active routine. A run marked **Waiting** is

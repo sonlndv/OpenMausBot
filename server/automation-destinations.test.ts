@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { createAutomationDestinations, type AutomationDestinationDeps } from "./automation-destinations.ts";
+import { createAutomationDestinations, isOwnResultsChat, type AutomationDestinationDeps } from "./automation-destinations.ts";
 import { CLOUD_OUTSIDE_KEY } from "./cloud-sharing.ts";
 import type { Routine } from "./routines.ts";
 
-function world(writer: string, cloud = true, earlier: Array<{ webhookId: string; botId: string; resultsThreadId: string }> = []) {
+function world(writer: string, cloud = true, earlier: Array<{ webhookId: string; botId: string; resultsThreadId: string }> = [], bot: { id: string; hidden?: boolean } | null = { id: "bot" }) {
   const tasks = new Map([["person-chat", { threadId: "person-chat", title: "Person" }], ["hook-chat", { threadId: "hook-chat", title: "Hook · Results" }]]);
   const opened: Array<[string, string]> = [];
   const outside: string[] = [];
   let made = 0;
   const store = {
-    bot: () => ({ id: "bot" }),
+    bot: () => bot,
     createTask: (_botId: string, title: string, ...rest: unknown[]) => { const task = { threadId: `made-${++made}`, title }; tasks.set(task.threadId, task); (rest[6] as ((made: { threadId: string }) => void) | undefined)?.(task); return task; },
     messagesFor: () => [],
     taskByThread: (_botId: string, threadId: string) => tasks.get(threadId),
@@ -43,6 +43,39 @@ describe("where an automation reports on a Cloud", () => {
     const w = world("owner");
     expect(w.destinations.event({ webhookId: "w", webhookName: "Hook", botId: "bot" })).toBe("made-1");
     expect(w.outside).toEqual(["made-1"]);
+  });
+});
+
+describe("a results thread of the automation's own, chosen at save", () => {
+  const daily = { id: "r", name: "Daily", botId: "bot" } as Routine;
+
+  it("opens it as the routine's opener on a Cloud, and plainly elsewhere", () => {
+    const onCloud = world("p_someone");
+    expect(onCloud.destinations.dedicated(daily)).toBe("made-1");
+    expect(onCloud.tasks.get("made-1")).toMatchObject({ title: "Daily results" });
+    expect(onCloud.opened).toEqual([["made-1", "p_someone"]]);
+    const plain = world("owner", false);
+    expect(plain.destinations.dedicated(daily)).toBe("made-1");
+    expect(plain.opened).toEqual([]);
+  });
+
+  it("opens nothing for a missing or hidden bot", () => {
+    expect(world("owner", false, [], null).destinations.dedicated(daily)).toBeUndefined();
+    expect(world("owner", false, [], { id: "bot", hidden: true }).destinations.dedicated(daily)).toBeUndefined();
+  });
+
+  it("is reused run after run: its title never reads as a legacy results chat to migrate off", () => {
+    const w = world("owner", false);
+    const threadId = w.destinations.dedicated(daily)!;
+    const pinned = { ...daily, resultsThreadId: threadId } as Routine;
+    expect(w.destinations.routine(pinned, false)).toEqual({ threadId });
+    expect(w.destinations.routine(pinned, false)).toEqual({ threadId });
+    expect(isOwnResultsChat(daily.name, { ...w.tasks.get(threadId)!, askedAt: undefined })).toBe(false);
+  });
+
+  it("keeps a pinned chat that is gone, reporting to the main chat meanwhile", () => {
+    expect(world("owner", false).destinations.routine({ ...routine, resultsThreadId: "gone" }, false))
+      .toEqual({ threadId: "main", main: true, pinnedMissing: true });
   });
 });
 

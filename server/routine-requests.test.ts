@@ -67,6 +67,7 @@ function harness(
     opensCard: boolean,
   ) => { ok: true } | { ok: false; status: number; error: string },
   autoApply?: DirectApplyCheck,
+  resultsThreads?: { isResultsThread?: (botId: string, threadId: string) => boolean; createResultsThread?: () => string | undefined },
 ) {
   const clock = { now: start };
   const dir = mkdtempSync(join(tmpdir(), "omb-routine-request-"));
@@ -78,6 +79,7 @@ function harness(
     goalState: () => "busy",
     createTask: () => null,
     startTurn: async () => {},
+    ...resultsThreads,
   });
   const store = new MemoryStore();
   const service = new RoutineRequestService({
@@ -2101,5 +2103,47 @@ describe("a bot's own routine changes", () => {
     const applied = await service.submit({ botId: "bot-a", threadId: "ask-thread", proposal: createProposal({ instructions: "Another." }) });
     expect(service.undo({ botId: "bot-b", threadId: "ask-thread", requestId: applied.requestId })).toMatchObject({ state: "invalid", status: 403 });
     expect(undo(service, "missing")).toEqual({ claimed: false });
+  });
+});
+
+describe("where an automation posts its results", () => {
+  const rule: DirectApplyCheck = (botId, _threadId, targetBotId) => directApply({ fullAccess: false, botId, targetBotId, blocked: false });
+  const destinations = () => harness(undefined, undefined, undefined, rule, {
+    isResultsThread: () => true,
+    createResultsThread: () => "results-9",
+  });
+  const submit = (service: RoutineRequestService, proposal: RoutineProposalInput, threadId = "ask-thread") =>
+    service.submit({ botId: "bot-a", threadId, proposal });
+
+  it("maps each destination into the created routine and names it on the card", async () => {
+    const { service, routines } = destinations();
+    const byDefault = await submit(service, createProposal({ results: "default_chat" }));
+    expect(byDefault.detail).toContain("Results: the bot's default chat");
+    const pinned = await submit(service, createProposal({ instructions: "Pinned here.", results: "this_chat" }));
+    expect(pinned.detail).toContain("Results: this chat");
+    const fresh = await submit(service, createProposal({ instructions: "A thread of its own.", results: "new_thread" }));
+    expect(fresh.detail).toContain("Results: a new results thread");
+    const byPrompt = (prompt: string) => routines.listRoutines().find((routine) => routine.prompt === prompt);
+    expect(byPrompt("Summarize the overnight support queue.")?.resultsThreadId).toBeUndefined();
+    expect(byPrompt("Pinned here.")?.resultsThreadId).toBe("ask-thread");
+    expect(byPrompt("A thread of its own.")?.resultsThreadId).toBe("results-9");
+  });
+
+  it("changes only the destination on an update, and undo moves it back", async () => {
+    const { service, routines } = destinations();
+    const created = await submit(service, createProposal({ results: "this_chat" }));
+    const routineId = created.result!.resultId;
+    expect(routines.listRoutines()[0]?.resultsThreadId).toBe("ask-thread");
+    const moved = await submit(service, { action: "update", routineId, changes: { results: "default_chat" } });
+    expect(routines.listRoutines()[0]).toMatchObject({ name: "Morning brief", resultsThreadId: undefined });
+    expect(service.undo({ botId: "bot-a", threadId: "ask-thread", requestId: moved.requestId })).toMatchObject({ state: "undone", action: "update" });
+    expect(routines.listRoutines()[0]?.resultsThreadId).toBe("ask-thread");
+  });
+
+  it("surfaces the manager's refusal instead of substituting another chat", async () => {
+    const { service, routines } = harness(undefined, undefined, undefined, rule);
+    await expect(submit(service, createProposal({ results: "this_chat" }))).rejects.toThrow("Choose a visible results thread belonging to this bot");
+    await expect(submit(service, createProposal({ results: "new_thread" }))).rejects.toThrow("A new results thread is not available here. Choose another destination.");
+    expect(routines.listRoutines()).toHaveLength(0);
   });
 });

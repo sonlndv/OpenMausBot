@@ -8695,6 +8695,7 @@ routines = new RoutineManager({
     return Boolean(bot && !bot.hidden && task && !task.routineRunId);
   },
   resolveResultsThread: (routine, forceNew) => automationDestinations.routine(routine, forceNew || teamRoutines.reportsElsewhere(routine)),
+  createResultsThread: (routine) => CLOUD_TEAM ? undefined : automationDestinations.dedicated(routine), // the team picker never offers one; refusing beats improvising an audience
   eventResultsThread: (event) => automationDestinations.event(event),
   frozenResultsThread: (botId, threadId) => wasOldestThread(store.tasks(botId), threadId) && !cloudGuestOpened(threadId),
   discardResultsThread: (botId, threadId) => {

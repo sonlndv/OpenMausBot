@@ -32,25 +32,34 @@ export function isOwnResultsChat(routineName: string, task: Pick<TaskRecord, "ti
 
 export function createAutomationDestinations(deps: AutomationDestinationDeps) {
   const { store, cloud } = deps;
-  const chatOfItsOwn = (botId: string, name: string, person?: string) => {
-    return store.createTask(botId, `${name} · Results`, false, undefined, undefined, undefined, undefined, undefined,
+  const openTask = (botId: string, title: string, person?: string) => {
+    return store.createTask(botId, title, false, undefined, undefined, undefined, undefined, undefined,
       person ? (created) => cloud?.opened(created.threadId, person) : undefined)?.threadId;
   };
+  const chatOfItsOwn = (botId: string, name: string, person?: string) => openTask(botId, `${name} · Results`, person);
   return {
     /** The chat of its own an outside event's run reports into on a Cloud: never the person's, and never a wait's, which reports to the chat that set it. */
     eventChat(run: Pick<RoutineRun, "botId" | "routineName" | "resultsThreadId" | "eventSource">): string | undefined {
       const task = cloud && run.eventSource !== "wait" && run.resultsThreadId ? store.taskByThread(run.botId, run.resultsThreadId) : undefined;
       return task && legacyResultsThread(run.routineName, task) ? task.threadId : undefined;
     },
-    routine(routine: Routine, forceNew: boolean): { threadId: string; main?: true } | undefined {
+    /** A results thread of this automation's own, pinned at save. Its title never reads as a legacy results chat, so
+     * `routine()` keeps returning it instead of migrating it back to the main chat. */
+    dedicated(routine: Routine): string | undefined {
+      const bot = store.bot(routine.botId);
+      if (!bot || bot.hidden) return undefined;
+      return openTask(bot.id, `${routine.name} results`, cloud ? cloud.opener(routine.id, routine) : undefined);
+    },
+    routine(routine: Routine, forceNew: boolean): { threadId: string; main?: true; pinnedMissing?: true } | undefined {
       const bot = store.bot(routine.botId);
       const opener = cloud?.opener(routine.id, routine);
       // A routine outside work wrote reports nowhere a person already works, whatever chat it names.
-      const chosen = !forceNew && opener !== CLOUD_OUTSIDE_KEY && routine.resultsThreadId && bot && !bot.hidden ? store.taskByThread(bot.id, routine.resultsThreadId) : undefined;
+      const pinned = !forceNew && opener !== CLOUD_OUTSIDE_KEY && routine.resultsThreadId && bot && !bot.hidden;
+      const chosen = pinned ? store.taskByThread(bot!.id, routine.resultsThreadId!) : undefined;
       const main = bot && !bot.hidden ? deps.mainThread(bot.id) : undefined;
       const mainAllowed = main && (!cloud || opener === cloud.owner);
       if (chosen && !chosen.routineRunId && !(mainAllowed && legacyResultsThread(routine.name, chosen))) return { threadId: chosen.threadId };
-      if (mainAllowed) return { threadId: main, main: true };
+      if (mainAllowed) return pinned && !chosen ? { threadId: main, main: true, pinnedMissing: true } : { threadId: main, main: true };
       const threadId = cloud ? chatOfItsOwn(routine.botId, routine.name, opener!) : undefined;
       return threadId ? { threadId } : undefined;
     },

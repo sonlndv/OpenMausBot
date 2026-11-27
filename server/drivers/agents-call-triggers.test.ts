@@ -156,3 +156,24 @@ describe("same_conversation in the trigger tool", () => {
     expect(refused.calls).toEqual([]);
   });
 });
+
+describe("post_results_to in the trigger tool", () => {
+  it("sends results for a schedule create or update, and refuses it elsewhere before anything is sent", async () => {
+    const { calls, context: ctx } = context();
+    await callTool("trigger", { action: "create", when: "schedule", name: "A", instructions: "B", schedule: { type: "daily", time: "09:00" }, post_results_to: "new_thread" }, ctx);
+    expect(calls[0]!.body).toMatchObject({ action: "create", kind: "schedule", routine: { results: "new_thread" } });
+    await callTool("trigger", { action: "update", trigger_id: "t-1", post_results_to: "this_chat" }, ctx);
+    expect(calls[1]!.body).toMatchObject({ action: "update", triggerId: "t-1", changes: { results: "this_chat" } });
+    const refused = context();
+    const text = async (args: Record<string, unknown>) => (await callTool("trigger", args, refused.context)).text;
+    expect(await text({ action: "create", when: "webhook", name: "A", instructions: "B", post_results_to: "default_chat" }))
+      .toBe("A webhook trigger fires when its link is called, so it takes no post_results_to.");
+    expect(await text({ action: "create", when: "app_event", name: "A", instructions: "B", app: "gmail", event: "X", post_results_to: "default_chat" }))
+      .toBe("An app-event trigger fires when the app's event happens, so it takes no post_results_to.");
+    expect(await text({ action: "create", when: "limit_reset", name: "A", instructions: "B", post_results_to: "default_chat" }))
+      .toBe("A limit-reset trigger runs when the engine's limit resets, so it takes no post_results_to.");
+    expect(await text({ action: "create", when: "schedule", name: "A", instructions: "B", schedule: { type: "daily", time: "09:00" }, post_results_to: "my_chat" }))
+      .toBe("post_results_to must be default_chat, this_chat or new_thread.");
+    expect(refused.calls).toEqual([]);
+  });
+});

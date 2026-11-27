@@ -281,9 +281,15 @@ export interface RoutineInput {
   deliver?: RoutineDelivery | null;
   attachments?: RoutineContextAttachment[];
   /** Omission preserves routing; null resets it to the bot's main thread (on a Team Cloud, a results chat everyone who
-   * sees the bot reads); RESULTS_JUST_ME, on a Team Cloud only, the person's own private chat with the bot. */
+   * sees the bot reads); RESULTS_JUST_ME, on a Team Cloud only, the person's own private chat with the bot;
+   * RESULTS_NEW_THREAD, where the server offers it, a results thread of this automation's own, opened once at save,
+   * pinned to the routine and reused by every later run. */
   resultsThreadId?: string | null;
 }
 
 /** On a Team Cloud, "Just me": the routine reports into the person's own private chat with the bot, theirs alone. */
 export const RESULTS_JUST_ME = "just-me";
+
+/** "Create a new results thread": an input-only sentinel, never stored. Saving it opens one thread for this automation
+ * and pins the routine to that thread's id; cancelling a form that chose it creates nothing. */
+export const RESULTS_NEW_THREAD = "new-thread";

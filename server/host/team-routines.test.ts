@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { RESULTS_JUST_ME } from "../../shared/routines.ts";
+import { RESULTS_JUST_ME, RESULTS_NEW_THREAD } from "../../shared/routines.ts";
 import { CLOUD_NOBODY_KEY, CLOUD_OUTSIDE_KEY } from "../cloud-sharing.ts";
 import { personKey } from "../person-key.ts";
 import type { RequestAuth } from "../request-auth.ts";
@@ -64,6 +64,7 @@ describe("createTeamRoutines", () => {
     expect(host.bodyRefusal(session(OLIVE), { botId: "bobs-mausbot", name: "x" })).toEqual({ status: 404, error: "no such bot" });
     expect(host.bodyRefusal(session(BOB), { botId: "bobs-mausbot", name: "x" })).toBeNull();
     expect(fixture(false).host.bodyRefusal(session(BOB), { resultsThreadId: "main" })?.status).toBe(403);
+    expect(fixture(false).host.bodyRefusal(session(BOB), { resultsThreadId: RESULTS_NEW_THREAD }), "the new-thread choice names no conversation to refuse").toBeNull();
   });
 
   it("makes Just me the person's own private chat with the bot, or a new one", () => {

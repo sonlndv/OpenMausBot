@@ -4,7 +4,7 @@
 // and what happens to a leaver's routines (team-member-left.ts). Off a team every answer here is the plain one.
 import { basename } from "node:path";
 
-import { RESULTS_JUST_ME } from "../../shared/routines.ts";
+import { RESULTS_JUST_ME, RESULTS_NEW_THREAD } from "../../shared/routines.ts";
 import { isOwnResultsChat } from "../automation-destinations.ts";
 import type { createCloudRoutineAuthors } from "../cloud-lending.ts";
 import { CLOUD_NOBODY_KEY, CLOUD_OUTSIDE_KEY } from "../cloud-sharing.ts";
@@ -70,7 +70,7 @@ export function createTeamRoutines(deps: TeamRoutinesDeps) {
     bodyRefusal(auth: RequestAuth, body: unknown): { status: number; error: string } | null {
       const botId = field(body, "botId"), results = field(body, "resultsThreadId");
       if (!deps.team) {
-        const refused = typeof results === "string" ? deps.threadRefusal(auth, results) : null;
+        const refused = typeof results === "string" && results !== RESULTS_NEW_THREAD ? deps.threadRefusal(auth, results) : null;
         return refused ? { status: 403, error: refused } : null;
       }
       const own = typeof botId === "string" ? deps.ownBot?.(botId) : null;
