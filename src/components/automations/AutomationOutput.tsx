@@ -71,23 +71,31 @@ function RunDetail({ run, botName, when }: { run: RoutineRun; botName: string; w
   </article>;
 }
 
-function RunList({ items, renderRows, grouped = false }: {
-  items: RoutineRun[]; renderRows: (items: RoutineRun[]) => ReactNode; grouped?: boolean;
+function RunSummary({ run, date }: { run: RoutineRun; date: Intl.DateTimeFormat }) {
+  const at = routineRunTime(run);
+  return <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
+    <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink">{run.routineName}</span>
+    <time dateTime={new Date(at).toISOString()} className="shrink-0 text-[12px] font-normal text-ink-secondary">{date.format(at)}</time>
+  </span>;
+}
+
+function RunList({ items, renderRows, summary }: {
+  items: RoutineRun[]; renderRows: (items: RoutineRun[]) => ReactNode; summary?: ReactNode;
 }) {
   const [limit, setLimit] = useState(25);
   const [expanded, setExpanded] = useState(false);
-  const list = (!grouped || expanded) && <>
+  const list = (!summary || expanded) && <>
     {renderRows(items.slice(0, limit))}
     {items.length > limit && <button type="button" className={textButton}
       onClick={() => setLimit(value => value + 25)}>{t("routines.loadMore")}</button>}
   </>;
   const surface = "overflow-hidden rounded-xl border border-hairline/50 bg-panel";
-  if (!grouped) return <div className={surface}>{list}</div>;
+  if (!summary) return <div className={surface}>{list}</div>;
   return <details open={expanded} className={cn("group", surface)}>
     <summary onClick={event => { event.preventDefault(); setExpanded(value => !value); }}
       className="flex cursor-pointer list-none items-center gap-2 px-3 py-3 text-[14px] font-medium text-ink hover:bg-raised sm:px-4">
       <ChevronDown size={15} className="-rotate-90 text-ink-secondary group-open:rotate-0" aria-hidden="true" />
-      <span className="min-w-0 flex-1 truncate">{items[0].routineName}</span><span className="text-[12px] text-ink-secondary">{items.length}</span>
+      {summary}
     </summary>
     {list}
   </details>;
@@ -138,16 +146,9 @@ export function AutomationOutput({ botFilter, department, runId }: { botFilter: 
         select(run.id);
       }}
         className="flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-raised focus-visible:bg-raised sm:px-4">
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[14px] font-medium text-ink">{run.routineName}</span>
-          <span className="mt-0.5 block text-[12px] text-ink-secondary">{ownerName(run)} · <time dateTime={new Date(routineRunTime(run)).toISOString()}>{date.format(routineRunTime(run))}</time></span>
-        </span>
-        <span className={cn("text-[12px] font-medium", routineRunTone(run))}>{routineRunLabel(run)}</span>
+        <RunSummary run={run} date={date} />
         <ChevronRight size={14} className="text-ink-secondary" aria-hidden="true" />
       </button>
-      {run.output && <div className="min-w-0 px-3 pb-4 text-[14px] leading-relaxed text-ink sm:px-4">
-        <ChatMarkdown text={routineRunText(run, "output")} />
-      </div>}
     </li>)}
   </ul>;
   return <div className="min-h-0 flex-1 overflow-y-auto">
@@ -173,7 +174,7 @@ export function AutomationOutput({ botFilter, department, runId }: { botFilter: 
           </Select>
         </div>
         {listed.length ? grouped ? <div className="space-y-2">
-          {[...groups].map(([id, items]) => <RunList key={id} grouped items={items} renderRows={rows} />)}
+          {[...groups].map(([id, items]) => <RunList key={id} summary={<RunSummary run={items[0]} date={date} />} items={items} renderRows={rows} />)}
         </div> : <RunList items={listed} renderRows={rows} />
           : !waiting && !error && <p className="text-[14px] text-ink-secondary">{t(needle || status !== "all" || botFilter !== "all" || department !== "all" ? "routines.noMatchingRuns" : "automations.output.empty")}</p>}
       </div>

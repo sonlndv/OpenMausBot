@@ -582,10 +582,17 @@ describe("Automation output", () => {
     const container = mount(page());
     const order = () => [...container.querySelectorAll<HTMLButtonElement>("button[data-run-id]")].map(row => row.dataset.runId);
     expect(order()).toEqual(["latest", "earlier"]);
-    expect(container.querySelector(".md-heading")?.textContent).toBe("Earlier excerpt");
-    expect(container.textContent).toContain("Draft one");
+    const expectSummary = (row: Element, timestamp: number) => {
+      const time = row.querySelector("time")!;
+      expect(time.dateTime).toBe(new Date(timestamp).toISOString());
+      expect(row.textContent).toBe("Morning notes" + time.textContent);
+    };
+    expectSummary(container.querySelector('[data-run-id="earlier"]')!, now - 1000);
+    expect(container.textContent).not.toContain("Draft one");
+    expect(container.textContent).not.toContain("Latest excerpt");
     flushSync(() => button(container, "By automation").click());
     expect(container.querySelectorAll("details")).toHaveLength(1);
+    expectSummary(container.querySelector("summary")!, now);
     flushSync(() => container.querySelector("summary")!.click());
     flushSync(() => container.querySelector<HTMLButtonElement>('[data-run-id="earlier"]')!.click());
     expect(fixture.dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: "showRoutines", view: "output", runId: "earlier" }));
@@ -594,7 +601,8 @@ describe("Automation output", () => {
     fixture.api.mockImplementation(async (path) => path === "/api/routine-runs/earlier/output"
       ? await new Promise(resolve => { finishEarlier = resolve; }) : { output: "Latest full result" });
     flushSync(() => root!.render(page("earlier")));
-    expect(container.querySelector("article")?.textContent).toContain("Earlier excerpt");
+    expect(container.querySelector("article .md-heading")?.textContent).toBe("Earlier excerpt");
+    expect(container.querySelector("article li")?.textContent).toBe("Draft one");
     flushSync(() => root!.render(page("latest")));
     await vi.waitFor(() => expect(container.querySelector("article")?.textContent).toContain("Latest full result"));
     finishEarlier({ output: "Earlier full result" });
