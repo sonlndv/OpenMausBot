@@ -11,6 +11,7 @@ import { GroupView } from "./GroupView";
 import { ThreadPanelHeading } from "./room-feed/ThreadPanelHeading";
 import { useRoomFeedHere } from "./room-feed/use-room-feed";
 import { useThreadTurnStart } from "./room-feed/thread-turn-start";
+import { useRoomWorkStatuses } from "./room-feed/use-room-work";
 import { FEED_MIN_WIDTH } from "./room-feed/feed-fit";
 import { PANEL_MIN_WIDTH, useComputerPanelResize } from "./computer-panel-resize";
 
