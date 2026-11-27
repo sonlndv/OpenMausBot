@@ -31,7 +31,7 @@ import { failsLikeLastOutcome, outcomesNewestFirst } from "./routine-outcomes.ts
 import { busyWait, markStop, RunClock, runOverLimit, SlowStops, withBoundedStops, type StopState } from "./routine-bounds.ts"; import { keepUnreadableAside, readRoutineFile, UNREADABLE_RETRY_MS } from "./routine-file.ts";
 import { noStartAlert, noStartSpacing, turnBackOn } from "./routine-no-start.ts"; import { afterRunSpacing, failureSpacingAlert, runSpacing } from "./routine-failure-spacing.ts"; import { blockingRun, recordSkip, type RoutineSkips } from "./routine-skips.ts";
 import { restartRetryAt, startupDecision } from "./routine-restarts.ts"; import { routineHealthOf, type RoutineHealth } from "./routine-health.ts"; import { Occurrences, ROUTINE_TURN_GONE } from "./routine-occurrences.ts"; import type { Occurrence } from "./routine-ledger.ts";
-import { CATCH_UP_MS, planOccurrence, settleRestored, staggered } from "./routine-catch-up.ts"; import { evictRuns } from "./routine-run-history.ts"; import { RunWatch } from "./routine-run-watch.ts"; import { scheduleSection, type ScheduleSection } from "./routine-schedule-report.ts";
+import { CATCH_UP_MS, planOccurrence, settleRestored, staggered } from "./routine-catch-up.ts"; import { cloneRun, evictRuns } from "./routine-run-history.ts"; import { RunWatch } from "./routine-run-watch.ts"; import { scheduleSection, type ScheduleSection } from "./routine-schedule-report.ts";
 import { EVENT_RETRY_WINDOW_MS, MAX_EVENT_RECEIPTS, type EventRunReceipt } from "./routine-event-receipts.ts"; import { waitsToWakeAgain, wakeGiveUp, wakeRetry, wakeRetryEnded, type WakeRetryMark } from "./routine-wake-retry.ts";
 import { attachmentPathsOf, cloneAttachments } from "./routine-attachments.ts";
 import { loadInstalledPackage, matchingRequestReceipt, rememberRequest } from "./routine-load.ts";
@@ -314,14 +314,6 @@ function cloneRoutine(routine: Routine): Routine {
     ...routine,
     schedule: cloneSchedule(routine.schedule),
     attachments: cloneAttachments(routine.attachments),
-  };
-}
-
-function cloneRun(run: RoutineRun): RoutineRun {
-  return {
-    ...run,
-    attachments: cloneAttachments(run.attachments),
-    denials: run.denials ? [...run.denials] : undefined,
   };
 }
 

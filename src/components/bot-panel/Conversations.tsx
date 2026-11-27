@@ -1,3 +1,4 @@
+import { browserSidebar } from "@/lib/thread-fold-preferences";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Search, SquarePen } from "lucide-react";
 
@@ -97,12 +98,13 @@ export function BotConversations({ bot }: { bot: Bot }) {
         turnStartedAt: thread.turnStartedAt ?? undefined, queued: Boolean(state.pendingQueued[task.threadId]?.length),
       };
     });
-  const kept = (task: (typeof threads)[number]) => task.threadId === bot.threadId || task.threadId === bot.mainThreadId;
-  const conversations = mainThreadFirst(orderedThreadList(threads.filter((task) => kept(task) || (!isArchived(task) && !task.closedBy))), bot.mainThreadId);
+  const mainId = browserSidebar() ? undefined : bot.mainThreadId;
+  const kept = (task: (typeof threads)[number]) => task.threadId === bot.threadId || task.threadId === mainId;
+  const conversations = mainThreadFirst(orderedThreadList(threads.filter((task) => kept(task) || (!isArchived(task) && !task.closedBy))), mainId);
   const ended = orderedThreadList(threads.filter((task) => !kept(task) && !isArchived(task) && Boolean(task.closedBy)));
   const archived = orderedThreadList(threads.filter((task) => isArchived(task) && !kept(task)));
   const needle = query.trim();
-  const collapsed = conversations.filter((task, index) => index < CONVERSATIONS_SHOWN || task.threadId === bot.threadId || task.threadId === bot.mainThreadId);
+  const collapsed = conversations.filter((task, index) => index < CONVERSATIONS_SHOWN || task.threadId === bot.threadId || task.threadId === mainId);
   const recent = useRecentMessages(bot, [...(needle || expanded ? conversations : collapsed), ...(needle || showEnded ? ended : []), ...(showArchived ? archived : [])]);
   const preview = (threadId: string) => {
     const messages = recent(threadId);
@@ -142,7 +144,7 @@ export function BotConversations({ bot }: { bot: Bot }) {
   const row = (task: (typeof threads)[number]) => (
     <div role="listitem" key={task.threadId} data-conversation={task.threadId}>
       <SidebarThreadRow panel preview={preview(task.threadId)} task={task} ownerId={bot.id} current={task.threadId === bot.threadId}
-        main={task.threadId === bot.mainThreadId} folders={bot.projects} now={stampClock(threadRecency(task), now)} locale={activeLocale()} onSelect={select} {...actions} />
+        main={task.threadId === mainId} folders={bot.projects} now={stampClock(threadRecency(task), now)} locale={activeLocale()} onSelect={select} {...actions} />
     </div>
   );
 

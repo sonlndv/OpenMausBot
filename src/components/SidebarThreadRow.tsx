@@ -352,7 +352,7 @@ export const SidebarThreadRow = memo(function SidebarThreadRow({ task, ownerId, 
   };
   const heading = <span className={cn("flex min-w-0 flex-1 items-baseline gap-1.5", panel && "pe-6")}>
     <span dir="auto" className={cn("min-w-0 flex-1 max-w-max truncate", task.unread && "font-semibold text-ink", (closed || archived || snoozed) && !current && "text-ink-tertiary")}>{displayTitle}</span>
-    {main && (panel || !browserSidebar()) && <MainThreadMark className="self-center" />}
+    {main && !browserSidebar() && <MainThreadMark className="self-center" />}
     {byline && (
       <span className="min-w-0 max-w-[45%] shrink truncate font-normal text-ink-tertiary">{byline}</span>
     )}
@@ -494,7 +494,7 @@ export function useThreadRowMenu({ task, displayTitle, ownerId, folders, main = 
         </Select>
       </label>}
       {onPin && <button type="button" onClick={() => { setMenu(null); onPin(task, task.pinned !== true); }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[14px] leading-[18px] text-ink hover:bg-menu-hover">{task.pinned === true ? <PinOff size={16} /> : <Pin size={16} />}{task.pinned === true ? t("sidebar.bot.unpin") : t("sidebar.bot.pin")}</button>}
-      {onSetMain && !task.routineRunId && !task.private && !archived && <SetMainThreadItem main={main} onPick={() => { setMenu(null); onSetMain(task); }} />}
+      {!browserSidebar() && onSetMain && !task.routineRunId && !task.private && !archived && <SetMainThreadItem main={main} onPick={() => { setMenu(null); onSetMain(task); }} />}
       {advanced && onLink && task.link && <button type="button" onClick={() => { setMenu(null); onLink(task, null); }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[14px] leading-[18px] text-ink hover:bg-menu-hover"><Link2Off size={16} />{t("task.removeLink")}</button>}
       {onSetClosed && <button type="button" data-thread-close={task.closedBy ? "reopen" : "close"} onClick={() => { setMenu(null); onSetClosed(task, !task.closedBy); }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[14px] leading-[18px] text-ink hover:bg-menu-hover">{task.closedBy ? <CircleDashed size={16} /> : <CircleCheck size={16} />}{task.closedBy ? t("task.reopenThread") : t("task.closeThread")}</button>}
       {onArchive && <button type="button" disabled={isWorking(task)} onClick={() => { setMenu(null); onArchive(task, isArchived(task) ? null : Date.now()); }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[14px] leading-[18px] text-ink hover:bg-menu-hover disabled:opacity-40">{archived ? <ArchiveRestore size={16} /> : <Archive size={16} />}{archived ? t("task.unarchive") : t("task.archive")}</button>}

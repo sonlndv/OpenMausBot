@@ -1,3 +1,4 @@
+import { browserSidebar } from "@/lib/thread-fold-preferences";
 import { useMemo, useState, type JSX } from "react";
 import { Bug, Copy, Cpu, Download, Gauge, LayoutTemplate, ListChecks, MessagesSquare, Monitor, MoreHorizontal, RotateCcw, Search, Share, SquarePen, Star, UserPlus, UserRound, Users } from "lucide-react";
 import { currentTaskBot, openBotThread, visibleMessages, type Bot } from "@/state/store";
@@ -48,13 +49,14 @@ export function useChatMoreItems(profile: Bot, phoneHeader = false): { items: Si
   const atFreshStart = messages.at(-1)?.compaction?.fresh === true;
   const transcript = () => conversationTranscript({ threadId: bot.threadId, hasMore: bot.hasMore, activeLeafId: bot.activeLeafId, title: bot.name, messages, botName: bot.name, isGroup: false });
   const side = useConversationSide(profile);
-  const threads = showThreads ? [] : mainThreadFirst(orderedThreadList((side ? tasksOfSide(profile, side) : profile.tasks ?? []).filter((task) => !task.routineRunId)), profile.mainThreadId);
+  const mainId = browserSidebar() ? undefined : profile.mainThreadId;
+  const threads = showThreads ? [] : mainThreadFirst(orderedThreadList((side ? tasksOfSide(profile, side) : profile.tasks ?? []).filter((task) => !task.routineRunId)), mainId);
   const openTask = profile.tasks?.find((task) => task.threadId === bot.threadId);
   const sharing = shareChoices(profile, openTask, Boolean(useTeamName()));
   const ownerOrAdmin = useOwnerOrAdmin();
-  const canSetMain = ownerOrAdmin === true && !remoteClient && openTask !== undefined
+  const canSetMain = !browserSidebar() && ownerOrAdmin === true && !remoteClient && openTask !== undefined
     && !openTask.routineRunId && !openTask.private && !openTask.openedBy && !isArchived(openTask);
-  const isMain = bot.threadId === profile.mainThreadId;
+  const isMain = bot.threadId === mainId;
   const shareItems: SidebarMenuItem[] = [
     { key: TEMPLATE_ITEM, label: t("template.shareAsTemplate"), icon: <LayoutTemplate size={16} />,
       onSelect: () => askBot(dispatch, profile.id, bot.threadId, TEMPLATE_SHARE_MESSAGE) },
@@ -124,7 +126,7 @@ export function useChatMoreItems(profile: Bot, phoneHeader = false): { items: Si
         key: `thread:${task.threadId}`,
       label: localizedTaskTitle(task.title || t("task.newShort")),
         active: task.threadId === bot.threadId,
-        trailing: task.threadId === profile.mainThreadId ? <MainThreadMark /> : undefined,
+        trailing: task.threadId === mainId ? <MainThreadMark /> : undefined,
         onSelect: () => openBotThread(dispatch, profile, task.threadId, showThreads),
       })),
       onSelect: () => {},

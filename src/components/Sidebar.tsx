@@ -467,8 +467,9 @@ export function BotThreadList({ bot, selected, drafting, query, pendingQueued, r
   }, [selected, currentProjectId]);
   useSnoozeExpiry(tasks);
   const bulk = useBulkSelect();
-  const { own: ownTasks, helpers } = bulk.active ? { own: tasks, helpers: [] } : partitionHelperThreads(tasks, bot.threadId, query, projects, bot.mainThreadId);
-  const visibleTasks = orderedThreadList(visibleSidebarThreads(ownTasks, bot.threadId, query, projects, showAll || bulk.active, routineRuns, bot.mainThreadId)), mainTask = visibleTasks.find((task) => task.threadId === bot.mainThreadId);
+  const mainId = browserSidebar() ? undefined : bot.mainThreadId;
+  const { own: ownTasks, helpers } = bulk.active ? { own: tasks, helpers: [] } : partitionHelperThreads(tasks, bot.threadId, query, projects, mainId);
+  const visibleTasks = orderedThreadList(visibleSidebarThreads(ownTasks, bot.threadId, query, projects, showAll || bulk.active, routineRuns, mainId)), mainTask = visibleTasks.find((task) => task.threadId === mainId);
   const visibleProjectIndex = (projectId: string) => visibleTasks.findIndex((task) => task !== mainTask && task.projectId === projectId);
   const folderRank = (projectId: string) => {
     const index = visibleProjectIndex(projectId);
@@ -535,7 +536,7 @@ export function BotThreadList({ bot, selected, drafting, query, pendingQueued, r
       {bulk.active && <BulkSelectFilters rows={shownRows} selected={selection} now={now} onChange={bulk.setSelected} onDone={bulk.finish} />}{mainTask && renderThread(mainTask)}
       {orderedProjects.map((project) => {
         const index = projects.indexOf(project);
-        const projectTasks = tasks.filter((task) => task.projectId === project.id && task.threadId !== bot.mainThreadId);
+        const projectTasks = tasks.filter((task) => task.projectId === project.id && task.threadId !== mainId);
         const visible = visibleTasks.filter((task) => task !== mainTask && task.projectId === project.id);
         if (query && visible.length === 0 && !project.name.toLowerCase().includes(query.toLowerCase())) return null;
         const open = Boolean(query) || bulk.active || !collapsed.has(project.id);
@@ -611,7 +612,7 @@ export function BotThreadList({ bot, selected, drafting, query, pendingQueued, r
       {ungrouped.map(renderThread)}
       <HelperThreadGroup tasks={orderedThreadList(helpers)} renderThread={renderThread} />
       <ThreadListFooter bulk={bulk} rows={shownRows} selected={selection} total={ownTasks.length} canShowAll={!query && !showAll && ownTasks.length > visibleTasks.length} canSelect={tasks.length > 1}
-        onShowAll={() => setShowAll(true)} onShowFewer={showAll && !query && !bulk.active && visibleSidebarThreads(ownTasks, bot.threadId, query, projects, false, routineRuns, bot.mainThreadId).length < ownTasks.length ? () => setShowAll(false) : undefined} freshConversation onDelete={(threadIds) => deleteThreadsInBulk({ botId: bot.id }, threadIds, dispatch)}
+        onShowAll={() => setShowAll(true)} onShowFewer={showAll && !query && !bulk.active && visibleSidebarThreads(ownTasks, bot.threadId, query, projects, false, routineRuns, mainId).length < ownTasks.length ? () => setShowAll(false) : undefined} freshConversation onDelete={(threadIds) => deleteThreadsInBulk({ botId: bot.id }, threadIds, dispatch)}
         onRetitle={(threadIds) => retitleThreadsInBulk(bot.id, threadIds)} />
       <LocalComputerAutoWarning
         open={permissionRefresh?.kind === "local-auto"}

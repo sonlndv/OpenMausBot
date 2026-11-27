@@ -94,6 +94,7 @@ beforeEach(() => {
 afterEach(() => {
   flushSync(() => root.unmount());
   host.remove();
+  Reflect.deleteProperty(window, "ogb");
 });
 
 describe("a bot's conversations in its panel", () => {
@@ -153,6 +154,7 @@ describe("a bot's conversations in its panel", () => {
   });
 
   it("lists the main thread first, above a pinned one, however old it is, folded or not", () => {
+    Object.defineProperty(window, "ogb", { configurable: true, value: { platform: "linux" } });
     render(research({ mainThreadId: "gift" }));
     expect(listed()).toEqual(["gift", "hiring", "launch", "who"]);
     click(more());
@@ -163,6 +165,7 @@ describe("a bot's conversations in its panel", () => {
   });
 
   it("keeps the main thread listed, with its mark, when it is older than the first three", () => {
+    Object.defineProperty(window, "ogb", { configurable: true, value: { platform: "linux" } });
     render(research({ mainThreadId: "gift" }));
     expect(listed()).toEqual(["gift", "hiring", "launch", "who"]);
     expect(row("gift").querySelector('[aria-label="Main thread"]')).not.toBeNull();
@@ -211,6 +214,7 @@ describe("a bot's conversations in its panel", () => {
   });
 
   it("marks the bot's main thread with the same star as the sidebar's thread list, and no other row", () => {
+    Object.defineProperty(window, "ogb", { configurable: true, value: { platform: "linux" } });
     render(research({ mainThreadId: "launch" }));
     const star = row("launch").querySelector('[role="img"][aria-label="Main thread"]');
     expect(star?.getAttribute("title")).toBe("Main thread");
@@ -298,7 +302,7 @@ describe("a bot's conversations in its panel", () => {
       return [...document.querySelector(`[data-thread-overlay][aria-label="Actions for ${title}"]`)!.querySelectorAll("button")];
     };
     const items = menuFor("Translate the launch post");
-    expect(items.map((button) => button.textContent)).toEqual(["Rename thread", "Memory", "Pin", "Set as main thread", "Archive", "Delete thread"]);
+    expect(items.map((button) => button.textContent)).toEqual(["Rename thread", "Memory", "Pin", "Archive", "Delete thread"]);
     click(items.find((button) => button.textContent === "Pin")!);
     expect(fixture.dispatch.mock.calls).toEqual([[{ type: "updateTask", botId: "research", threadId: "launch", patch: { pinned: true } }]]);
     fixture.dispatch.mockReset();
@@ -307,6 +311,7 @@ describe("a bot's conversations in its panel", () => {
   });
 
   it("sets the row's own thread as the main one from its menu, and not the one that already is, an archived one, or for a member", () => {
+    Object.defineProperty(window, "ogb", { configurable: true, value: { platform: "linux" } });
     const toggle = (title: string) => click(host.querySelector(`[aria-label="Actions for ${title}"]`));
     const item = (title: string) => [...document.querySelector(`[data-thread-overlay][aria-label="Actions for ${title}"]`)!.querySelectorAll("button")]
       .find((button) => button.textContent === "Set as main thread");
@@ -377,12 +382,12 @@ describe("a bot's conversations in its panel", () => {
     expect(listed()).toEqual(["hiring", "who", "deck"]);
   });
 
-  it("keeps an ended conversation in the list while it is open or the main one, and finds ended ones in search", () => {
+  it("keeps only the open ended conversation in the web list and finds other ended conversations in search", () => {
     const lead = { botId: "lead", name: "Lead", at: now };
     const endedTasks = tasks.map((task) => ["who", "gift", "deck"].includes(task.threadId) ? { ...task, closedBy: lead } : task);
     render(research({ mainThreadId: "gift", tasks: endedTasks }));
-    expect(listed()).toEqual(["gift", "hiring", "launch", "who"]);
-    expect(host.querySelector("[data-conversations-ended]")!.textContent).toBe("Ended (1)");
+    expect(listed()).toEqual(["hiring", "launch", "who"]);
+    expect(host.querySelector("[data-conversations-ended]")!.textContent).toBe("Ended (2)");
     click(host.querySelector("[data-conversations-search]"));
     type(host.querySelector<HTMLInputElement>("[data-conversations-query]")!, "board");
     expect(listed()).toEqual(["deck"]);

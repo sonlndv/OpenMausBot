@@ -1,3 +1,4 @@
+import { browserSidebar } from "@/lib/thread-fold-preferences";
 import type { Bot, Task } from "@/state/store";
 import { botOpensTo } from "@/state/thread-navigation";
 import { runningRoutineRuns, sidebarBotActivityTasks } from "./SidebarBotActivity";
@@ -19,7 +20,7 @@ type LabelBot = Pick<Bot, "threadId"> & Partial<Pick<Bot, "mainThreadId" | "task
 export const ownThread = (task: Pick<Task, "routineRunId" | "openedBy">): boolean => !task.routineRunId && !task.openedBy;
 
 /** The threads a bot unfolds to: the person's own open ones, and its main thread whoever opened it and whatever its state. */
-const ownOpen = (bot: Pick<LabelBot, "tasks" | "mainThreadId">) => (bot.tasks ?? []).filter((task) => task.threadId === bot.mainThreadId || (ownThread(task) && !isArchived(task) && !isSnoozed(task)));
+const ownOpen = (bot: Pick<LabelBot, "tasks" | "mainThreadId">) => (bot.tasks ?? []).filter((task) => (!browserSidebar() && task.threadId === bot.mainThreadId) || (ownThread(task) && !isArchived(task) && !isSnoozed(task)));
 
 /** Only a bot with more than one thread of the person's own has anything to unfold. */
 export const canUnfold = (bot: Pick<LabelBot, "tasks" | "mainThreadId">): boolean => ownOpen(bot).length > 1;
@@ -78,9 +79,10 @@ export function threadLabels(
   }
   const own = ownOpen(bot).map((task) => ({ ...task, queued: Boolean(queued[task.threadId]?.length) }));
   const recent = (task: LabelTask) => now - threadRecency(task) < ACTIVE_DAYS * DAY_MS;
-  const anchored = (task: LabelTask) => task.threadId === current || task.threadId === bot.mainThreadId;
+  const mainId = browserSidebar() ? undefined : bot.mainThreadId;
+  const anchored = (task: LabelTask) => task.threadId === current || task.threadId === mainId;
   const active = own.filter((task) => unpinned(task) && (anchored(task) || labelStatus(task) !== null || recent(task)))
-    .sort((a, b) => Number(b.threadId === bot.mainThreadId) - Number(a.threadId === bot.mainThreadId) || threadRecency(b) - threadRecency(a));
+    .sort((a, b) => Number(b.threadId === mainId) - Number(a.threadId === mainId) || threadRecency(b) - threadRecency(a));
   const others = active.filter((task) => !anchored(task)).slice(0, Math.max(0, ACTIVE_LIMIT - active.filter(anchored).length));
   const shown = active.filter((task) => anchored(task) || others.includes(task));
   const listed = new Set(shown.map((task) => task.threadId));

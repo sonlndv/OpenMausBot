@@ -72,6 +72,7 @@ function menuOf(element: ReturnType<typeof createElement>) {
 const keys = (items: SidebarMenuItem[]) => items.map((item) => item.key);
 
 beforeEach(() => {
+  vi.stubGlobal("window", { ogb: { platform: "linux" } });
   fixture.advanced = false;
   fixture.threadsChosen = true;
   fixture.inspectorOpen = false;
@@ -241,6 +242,15 @@ describe("Set as main thread, for the conversation on screen", () => {
   const withSide = (extra: Partial<Task>): Bot => ({ ...bot, tasks: bot.tasks!.map((each) => (each.threadId === "side" ? { ...each, ...extra } : each)) });
   const setMain = (item: Bot, menu: typeof ChatMoreMenu | typeof ChatHeaderMenu = ChatHeaderMenu) =>
     menuOf(createElement(menu, { bot: item })).items.find((one) => one.key === "set-main");
+
+  it("offers ordinary threads and no main-thread action on the web", () => {
+    vi.stubGlobal("window", {});
+    fixture.ownerOrAdmin = true;
+    expect(setMain(bot)).toBeUndefined();
+    const threads = menuOf(createElement(ChatMoreMenu, { bot })).items.find(item => item.key === "threads")!.submenu!;
+    expect(threads.map(item => item.label)).toEqual(["Trip plan", "Untitled chat", "Our chat"]);
+    expect(threads.every(item => item.trailing === undefined)).toBe(true);
+  });
 
   it("makes the open conversation the bot's main thread, in Simple and Advanced", () => {
     fixture.ownerOrAdmin = true;

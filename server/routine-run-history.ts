@@ -1,3 +1,4 @@
+import { cloneAttachments } from "./routine-attachments.ts";
 import type { RoutineRun } from "./routines.ts";
 
 const ACTIVE = new Set<RoutineRun["status"]>(["queued", "running", "waiting"]);
@@ -16,4 +17,12 @@ export function evictRuns(runs: RoutineRun[], max: number): void {
     runs.splice(runs.findIndex((run) => run.routineId === most && !ACTIVE.has(run.status)), 1);
     if (held === 1) ended.delete(most); else ended.set(most, held - 1);
   }
+}
+
+export function cloneRun(run: RoutineRun): RoutineRun {
+  return {
+    ...run,
+    attachments: cloneAttachments(run.attachments),
+    denials: run.denials ? [...run.denials] : undefined,
+  };
 }

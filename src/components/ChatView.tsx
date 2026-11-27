@@ -1,3 +1,4 @@
+import { browserSidebar } from "@/lib/thread-fold-preferences";
 import { chatHeaderContainer } from "./chat-header-layout";
 import { memo, use, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useAdvancedMode } from "@/lib/interface-mode";
@@ -375,7 +376,6 @@ const Bubble = memo(function Bubble({
     );
   }
 
-  // A long request from another bot is one line until opened.
   const peerLong = peer ? peerPreview(text) : null;
   if (peer && peerLong && !expanded && (!focusedSearch || folded)) return <div {...{ [MESSAGE_ROW]: "" }} className="group flex w-full flex-col items-start"><PeerLabel peer={peer} bots={bots} /><PeerCompactRow preview={peerLong} onOpen={() => setExpanded(true)} /></div>; if (earlierRound && !expanded) return <div {...{ [MESSAGE_ROW]: "" }} className="group flex w-full flex-col items-start"><PeerCompactRow label={t("chat.checkWork.earlierAnswer", { round: earlierRound })} preview={flatPreview(text)} testId="earlier-answer" onOpen={() => setExpanded(true)} /></div>;
   const forks = user && versions ? versions : [message];
@@ -976,7 +976,7 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
           )}
           {!paneTitle && !phone && !simpleHead && <ChatHeadRole bot={bot} />}<span role="status" className="sr-only" data-chathead-status>{bot.busy ? t("sidebar.preview.working") : ""}</span>{!paneTitle && !simpleHead && privateChat && <TeamPrivateHeader />}{!paneTitle && !simpleHead && ownHelper && <TeamOwnHelperHeader />}{!paneTitle && !simpleHead && sharedChat && team && <TeamSharedHeader team={team} onlyPeopleAdded={bot.onlyPeopleAdded} sharedWith={currentTask?.sharedWith?.name} />}
           {!paneTitle && !simpleHead && !bot.busy && bot.waitingForTeammates && <span className="truncate text-[12px] text-ink-secondary" role="status">{t("chat.teammatesWorking")}</span>}
-          {!paneTitle && (advanced || remoteClient) && awayFromMainThread(profile, showThreads) && (
+          {!paneTitle && !browserSidebar() && (advanced || remoteClient) && awayFromMainThread(profile, showThreads) && (
             <button
               type="button"
               data-chathead-back
