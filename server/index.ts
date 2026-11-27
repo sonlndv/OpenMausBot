@@ -434,6 +434,7 @@ import { LocalVmLease, LocalVmLeasePool } from "./local-vm-lease.ts";
 import { LocalVmSeatPool, type LocalVmSeatHolder } from "./local-vm-seat-pool.ts";
 import { loopGuardSettings } from "./host/loop-guard.ts"; import { createUnattendedTurns, personDriven } from "./host/unattended-turns.ts"; import { createPersonFirst } from "./host/person-first.ts"; import { createRunOwners, runActorOf } from "./host/run-owner.ts";
 import { claudeUserSkillsEnabled } from "./turn-settings.ts";
+import { routineOutputDetail } from "./routine-output-detail.ts";
 import { addHeldSecretScrubber, redactSecretsInText, scrubHeldSecrets } from "./redact.ts";
 import * as vps from "./vps-computer.ts";
 import { vpsConfigForBot, vpsSshAliasForBot } from "./vps-hosts.ts"; import { vpsContainerExec } from "./vps-exec.ts"; import { createVpsIdleHost } from "./host/vps-idle.ts";
@@ -14416,6 +14417,12 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     }
     if (path === "/api/routine-runs/seen-all" && method === "POST") {
       return json(res, 200, { runs: routines!.markAllSeen((run) => routineVisible(run, visible)) });
+    }
+    const outputRun = path.match(/^\/api\/routine-runs\/([\w-]+)\/output$/);
+    if (outputRun && method === "GET") {
+      const run = routines!.runById(outputRun[1]);
+      if (!run || !routineRunVisible(run, visible)) return json(res, 404, { error: "No such run." });
+      return json(res, 200, routineOutputDetail(run, (threadId) => visible.thread(threadId) ? store.messagesFor(threadId) : []));
     }
     const runMatch = path.match(/^\/api\/routine-runs\/([\w-]+)\/(cancel|seen)$/);
     if (runMatch && method === "POST") {

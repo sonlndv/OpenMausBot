@@ -111,6 +111,14 @@ describe("a team bot shared with a level per person", () => {
     expect((await as("eve", "PUT", `/api/bots/${payroll.id}/access`, { everyone: "chat", people: {} })).status).toBe(404);
   });
 
+  it("reveals run output only to a viewer with access to the run", async () => {
+    const start = await as("ada", "POST", `/api/routines/${adaRoutine}/run`);
+    expect(start.status).toBe(201);
+    const output = `/api/routine-runs/${start.body.run.id}/output`;
+    expect((await as("bob", "GET", output)).status).toBe(200);
+    expect((await as("eve", "GET", output)).status).toBe(404);
+  });
+
   const chatRoutes = (): Array<[string, string, unknown?]> => [
     ["POST", `/api/bots/${payroll.id}/messages`, { text: "What is my pay date?" }],
     ["POST", `/api/bots/${payroll.id}/messages`, { text: "In the main chat", threadId: payroll.threadId }],

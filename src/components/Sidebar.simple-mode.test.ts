@@ -61,7 +61,7 @@ beforeEach(() => {
   fixture.admin = true;
   fixture.state = { bots: [bot], selectedId: "other-bot", activeView: "chat", pendingQueued: { queued: [{ queueId: "q", text: "next" }] } };
   fixture.dispatch.mockClear();
-  vi.stubGlobal("window", { innerWidth: 1024, innerHeight: 768 });
+  vi.stubGlobal("window", { innerWidth: 1024, innerHeight: 768, ogb: { platform: "linux" } });
   vi.stubGlobal("document", { body: {} });
   vi.stubGlobal("HTMLInputElement", class {});
 });

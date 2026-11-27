@@ -22,6 +22,7 @@ import { threadLinkLabel } from "../../shared/thread-link";
 import { isSnoozed, orderedThreadList } from "../../shared/wire";
 import { Select } from "./Select";
 import { WorkingTimer } from "./WorkingIndicator";
+import { browserSidebar } from "@/lib/thread-fold-preferences";
 import { MainThreadMark, rowSelectedSurface } from "./SidebarRowMarkers";
 import { useHeldText } from "./SidebarWorkingStep";
 import { localizedTaskTitle } from "@/lib/task-title";
@@ -351,7 +352,7 @@ export const SidebarThreadRow = memo(function SidebarThreadRow({ task, ownerId, 
   };
   const heading = <span className={cn("flex min-w-0 flex-1 items-baseline gap-1.5", panel && "pe-6")}>
     <span dir="auto" className={cn("min-w-0 flex-1 max-w-max truncate", task.unread && "font-semibold text-ink", (closed || archived || snoozed) && !current && "text-ink-tertiary")}>{displayTitle}</span>
-    {main && <MainThreadMark className="self-center" />}
+    {main && (panel || !browserSidebar()) && <MainThreadMark className="self-center" />}
     {byline && (
       <span className="min-w-0 max-w-[45%] shrink truncate font-normal text-ink-tertiary">{byline}</span>
     )}

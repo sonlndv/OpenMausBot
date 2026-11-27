@@ -79,7 +79,7 @@ describe("the sidebar tiles", () => {
     const row = renderToStaticMarkup(createElement(BotListItem, props(failed)));
     expect(row).toMatch(/data-testid="failed-dot"[^>]*class="[^"]*\bbg-danger\b/);
     expect(row).not.toContain('data-testid="waiting-dot"');
-    expect(row).toContain('<span class="sr-only">Ran into a problem</span>');
+    expect(row).toMatch(/data-testid="failed-dot"[^>]*role="status"[^>]*aria-label="Ran into a problem"/);
   });
 
   it("opens the bot on Enter and its menu from the ContextMenu key", () => {

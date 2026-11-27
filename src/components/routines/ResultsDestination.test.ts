@@ -16,7 +16,7 @@ const bot = {
 describe("routine result destination", () => {
   it("offers a dedicated thread or visible conversations grouped by folder", () => {
     const html = renderToStaticMarkup(createElement(ResultsDestination, { bot, value: null, onChange: vi.fn() }));
-    expect(html).toContain("Post results to");
+    expect(html).toContain("Post future results to");
     expect(html).toContain('value="new" selected=""');
     expect(html).toContain('label="OMB management"');
     expect(html).toContain("Fleet health");

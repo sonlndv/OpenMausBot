@@ -3,6 +3,7 @@ import { Plus, Zap } from "lucide-react";
 
 import { automationsFrom, automationSentence, automationStatus, orderAutomations, runLine, statusLine, type Automation } from "@/lib/automations";
 import { cn } from "@/lib/cn";
+import { browserSidebar } from "@/lib/thread-fold-preferences";
 import { t } from "@/lib/i18n";
 import { isRoutineProblemRun } from "@/lib/routines";
 import { saveWebhookCredential, webhookCredentialStore } from "@/lib/webhook-credentials";
@@ -15,6 +16,7 @@ import { useMinuteTick } from "@/lib/minute-tick";
 import { AppEventEditor } from "./automations/AppEventEditor";
 import { useAllAutomationActions } from "./automations/app-actions";
 import { AutomationPanel } from "./automations/AutomationPanel";
+import { AutomationOutput } from "./automations/AutomationOutput";
 import { AutomationsCalendar } from "./automations/AutomationsCalendar";
 import { LimitWarnings } from "./automations/LimitWarnings";
 import { NewAutomation, type SetUpKind } from "./automations/NewAutomation";
@@ -41,7 +43,9 @@ export function TriggersPage({ onBack, onOpenRoom }: { onBack: () => void; onOpe
   const appTriggers = useAppTriggers();
   const backButtonRef = useRef<HTMLButtonElement>(null);
   const focus = state.routinesFocus;
-  const view = focus?.view === "calendar" ? "calendar" : "list";
+  const view = focus?.view ?? "list";
+  const outputDetail = view === "output" && Boolean(focus?.runId);
+  const views = browserSidebar() ? (["list", "calendar", "output"] as const) : (["list", "calendar"] as const);
   const [openId, setOpenId] = useState<string | null>(focus?.section !== "logs" ? focus?.routineId ?? null : null);
   const [botFilter, setBotFilter] = useState(focus?.botId ?? "all");
   const [department, setDepartment] = useState("all");
@@ -84,36 +88,36 @@ export function TriggersPage({ onBack, onOpenRoom }: { onBack: () => void; onOpe
 
   return (
     <ToolPage>
-      <ToolPageHeader backLabel={t("automations.back")} onBack={onBack} backRef={backButtonRef} besideSidebar={view === "list"}>
+      <ToolPageHeader backLabel={t("automations.back")} onBack={onBack} backRef={backButtonRef} besideSidebar={view !== "calendar"}>
           <h1 data-tour="automations-page" className={TOOL_PAGE_TITLE}>{t("automations.title")}</h1>
-          <ToolPageActions>
-            {showDepartments && (
+          <ToolPageActions className={browserSidebar() ? "max-w-full flex-wrap gap-2" : undefined}>
+            {showDepartments && !outputDetail && (
               <Select size="sm" aria-label={t("automations.allDepartments")} value={activeDepartment} onChange={(event) => { setDepartment(event.target.value); setBotFilter("all"); }} className="max-w-[180px]">
                 <option value="all">{t("automations.allDepartments")}</option>
                 {departments.names.map((name) => <option key={name} value={name}>{name}</option>)}
                 {departments.hasGeneral && <option value={GENERAL_DEPARTMENT}>{t("automations.generalDepartment")}</option>}
               </Select>
             )}
-            {showFilter && view === "list" && (
+            {((view === "list" && showFilter) || (view === "output" && !outputDetail && (departmentBots.length > 1 || botFilter !== "all"))) && (
               <Select size="sm" aria-label={t("automations.allBots")} value={botFilter} onChange={(event) => setBotFilter(event.target.value)} className="max-w-[180px]">
                 <option value="all">{t("automations.allBots")}</option>
                 {departmentBots.map((bot) => <option key={bot.id} value={bot.id}>{bot.name}</option>)}
               </Select>
             )}
             <div role="group" aria-label={t("automations.view")} className="flex items-center rounded-lg border border-hairline/50 bg-panel p-0.5">
-              {(["list", "calendar"] as const).map((option) => (
+              {views.map((option) => (
                 <button key={option} type="button" aria-pressed={view === option} onClick={() => dispatch({ type: "showRoutines", view: option, botId: botFilter === "all" ? undefined : botFilter })}
                   className={cn("rounded-md px-3 py-1 text-[13px] font-medium", view === option ? "bg-raised text-ink shadow-sm" : "text-ink-secondary hover:text-ink")}>
-                  {option === "list" ? t("automations.list") : t("automations.calendar")}
+                  {t(option === "output" ? "automations.output.tab" : `automations.${option}`)}
                 </button>
               ))}
             </div>
-            <button type="button" onClick={() => setNewText("")} className="flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-[13px] font-semibold text-accent-ink hover:brightness-110"><Plus size={15} aria-hidden="true" />{t("automations.new")}</button>
+            {view !== "output" && <button type="button" onClick={() => setNewText("")} className="flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-[13px] font-semibold text-accent-ink hover:brightness-110"><Plus size={15} aria-hidden="true" />{t("automations.new")}</button>}
           </ToolPageActions>
       </ToolPageHeader>
 
       <div className="relative flex min-h-0 flex-1">
-        {view === "calendar" ? <AutomationsCalendar botFilter={botFilter} department={activeDepartment} selectedAutomationId={openId} onOpenAutomation={setOpenId} onOpenRoom={onOpenRoom} /> : (
+        {view === "output" ? <AutomationOutput botFilter={botFilter} department={activeDepartment} runId={focus?.runId} /> : view === "calendar" ? <AutomationsCalendar botFilter={botFilter} department={activeDepartment} selectedAutomationId={openId} onOpenAutomation={setOpenId} onOpenRoom={onOpenRoom} /> : (
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="mx-auto w-full max-w-3xl p-4 sm:p-6">
               <LimitWarnings botFilter={showFilter ? botFilter : "all"} />
@@ -159,7 +163,7 @@ export function TriggersPage({ onBack, onOpenRoom }: { onBack: () => void; onOpe
             </div>
           </div>
         )}
-        {open && (
+        {open && view !== "output" && (
           <div className="absolute inset-y-0 right-0 z-30 flex shadow-2xl lg:static lg:shadow-none">
             <AutomationPanel key={open.id} automation={open} sentence={sentenceOf(open)} onClose={() => setOpenId(null)} onDeleted={() => setOpenId(null)} onEdit={() => setEditing({ kind: open.kind, id: open.id })} />
           </div>

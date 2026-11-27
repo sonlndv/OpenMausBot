@@ -93,12 +93,11 @@ describe("a bot's Show all threads", () => {
 describe("a bot's main thread", () => {
   const marked = () => [...host.querySelectorAll("[data-main-thread-mark]")].map((mark) => mark.closest("[data-sidebar-thread-row]")?.getAttribute("data-sidebar-thread-row"));
 
-  it("is marked in the thread list and stays listed when it is older than the short list", async () => {
+  it("stays in the web sidebar without a Main badge when older than the short list", async () => {
     bot.mainThreadId = "loose-0";
     await mount();
-    expect(marked()).toEqual(["loose-0"]);
-    const mark = host.querySelector("[data-main-thread-mark]")!;
-    expect([mark.getAttribute("role"), mark.getAttribute("aria-label"), mark.textContent]).toEqual(["img", "Main thread", "Main"]);
+    expect(host.textContent).toContain("Loose chat 0");
+    expect(marked()).toEqual([]);
     expect(host.textContent).not.toContain("Loose chat 1");
     await unmount();
     delete bot.mainThreadId;
@@ -142,11 +141,12 @@ describe("a bot's main thread", () => {
     delete bot.mainThreadId;
   });
 
-  it("is marked on a collapsed bot's row for it", () => {
+  it("hides the badge on a collapsed web bot too", () => {
     const html = renderToStaticMarkup(createElement(SidebarBotActivity, {
       bot: { ...bot, mainThreadId: "filed-pinned" }, rowThreadId: bot.threadId, density: "comfortable", pendingQueued: {}, dispatch: vi.fn(),
     }));
-    expect(html.match(/data-main-thread-mark/g)).toHaveLength(1);
+    expect(html).toContain("Filed pinned");
+    expect(html).not.toContain("data-main-thread-mark");
   });
 });
 

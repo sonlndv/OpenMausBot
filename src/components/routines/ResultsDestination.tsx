@@ -42,6 +42,18 @@ export function RoutineAudience({ team, bot, value, madeIn }: { team?: { name: s
   </p>;
 }
 
+const webResults = () => typeof window === "undefined" || !window.ogb;
+
+export function resultsDestinationLabel(): string {
+  return t(webResults() ? "routines.results.futureLabel" : "routines.results.label");
+}
+
+export function defaultResultsTitle(bot?: Bot): string {
+  if (!webResults()) return t("routines.results.main");
+  const chat = bot?.tasks?.find((task) => task.threadId === bot.mainThreadId);
+  return chat?.title ? t("routines.results.namedDefaultChat", { thread: chat.title }) : t("routines.results.defaultChat");
+}
+
 export function ResultsDestination({ bot, value, allowCurrent = false, team, onChange }: {
   bot?: Bot;
   value: string | null | undefined;
@@ -56,11 +68,11 @@ export function ResultsDestination({ bot, value, allowCurrent = false, team, onC
   const selectedMissing = typeof value === "string" && !tasks.some((task) => task.threadId === value);
   const groups = [...(bot?.projects ?? []), { id: "", name: t("folder.none") }];
   return <div className="min-w-0 space-y-1.5">
-    <label htmlFor={id} className="block text-[12px] font-medium text-ink">{t("routines.results.label")}</label>
+    <label htmlFor={id} className="block text-[12px] font-medium text-ink">{resultsDestinationLabel()}</label>
     <Select className="w-full" id={id} aria-describedby={`${id}-help`} disabled={!bot} value={value ?? (value === null ? "new" : "current")}
       onChange={(event) => onChange(event.target.value === "new" ? null : event.target.value === "current" ? undefined : event.target.value)}>
       {allowCurrent && <option value="current">{t("routines.results.keep")}</option>}
-      <option value="new">{t("routines.results.main")}</option>
+      <option value="new">{defaultResultsTitle(bot)}</option>
       {selectedMissing && <option value={value!} disabled>{t("routines.results.unavailable")}</option>}
       {groups.map((group) => {
         const members = tasks.filter((task) => group.id ? task.projectId === group.id : !bot?.projects?.some((project) => project.id === task.projectId));
@@ -69,7 +81,7 @@ export function ResultsDestination({ bot, value, allowCurrent = false, team, onC
         </optgroup> : null;
       })}
     </Select>
-    <p id={`${id}-help`} className="text-[11px] leading-relaxed text-ink-secondary">{t("routines.results.mainHelp")}</p>
+    <p id={`${id}-help`} className="text-[11px] leading-relaxed text-ink-secondary">{t(webResults() ? "routines.results.futureHelp" : "routines.results.mainHelp")}</p>
   </div>;
 }
 
@@ -79,7 +91,7 @@ function TeamResultsDestination({ id, bot, value, allowCurrent, onChange }: {
   const ownChat = typeof value === "string" && Boolean(bot?.tasks?.some((task) => task.threadId === value && task.private === true));
   const selected = value === undefined && allowCurrent ? "current" : value === RESULTS_JUST_ME || ownChat ? "me" : "shared";
   return <div className="min-w-0 space-y-1.5">
-    <label htmlFor={id} className="block text-[12px] font-medium text-ink">{t("routines.results.label")}</label>
+    <label htmlFor={id} className="block text-[12px] font-medium text-ink">{resultsDestinationLabel()}</label>
     <Select className="w-full" id={id} aria-describedby={`${id}-help`} disabled={!bot} value={selected}
       onChange={(event) => onChange(event.target.value === "current" ? undefined : event.target.value === "me" ? (ownChat ? value : RESULTS_JUST_ME) : bot?.mainThreadId ?? null)}>
       {selected === "current" && <option value="current">{t("routines.results.keep")}</option>}

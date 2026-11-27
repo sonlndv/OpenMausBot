@@ -224,7 +224,7 @@ describe("routine drawer", () => {
   it("shows bot, plain schedule, instructions, where it runs, results and the last three runs", () => {
     const { html } = details(routineItem(routine));
     for (const text of ["Bot", "Runner", "Schedule", scheduleLabel(routine.schedule), "What to do", routine.prompt,
-      "Runs on", "This computer", "Post results to", "Morning briefs", "Run logs", "Active"]) {
+      "Runs on", "This computer", "Post future results to", "Morning briefs", "Run logs", "Active"]) {
       expect(html, text).toContain(text);
     }
     expect(html.match(/aria-label="Open Morning brief run:/g)).toHaveLength(3);
@@ -279,7 +279,7 @@ describe("routine editor", () => {
     seed: { kind: "routine", at: Date.now() + 3_600_000, durationMinutes: 30, botIds: [bot.id], routine: routineToEdit },
     bots: [bot], onClose: vi.fn(), onSavedCall: vi.fn(),
   }));
-  const hidden = ['<select aria-label="Repeat"', "Routine safety limit", "Runs the whole job on the bot&#x27;s cloud desktop", "Add attachment", "Post results to", "Routine type"];
+  const hidden = ['<select aria-label="Repeat"', "Routine safety limit", "Runs the whole job on the bot&#x27;s cloud desktop", "Add attachment", "Post future results to", "Routine type"];
 
   it("keeps Simple mode to the basics with everything else behind More options", () => {
     const html = editor();
@@ -381,15 +381,15 @@ describe("routine editor", () => {
   it("shows a routine with no thread of its own reporting into the bot's main thread", () => {
     fixture.advanced = true;
     const { resultsThreadId: _chosen, ...unchosen } = routine;
-    const destination = (html: string) => html.slice(html.indexOf("Post results to")).match(/^[\s\S]*?<\/select>/)![0];
-    expect(destination(editor(unchosen))).toContain('<option value="new" selected="">The bot&#x27;s main thread</option>');
+    const destination = (html: string) => html.slice(html.indexOf("Post future results to")).match(/^[\s\S]*?<\/select>/)![0];
+    expect(destination(editor(unchosen))).toContain('<option value="new" selected="">Bot’s default chat</option>');
     expect(destination(editor(routine))).toContain('<option value="brief-thread" selected="">Morning briefs</option>');
   });
 
   it("leaves the Advanced editor as it was", () => {
     fixture.advanced = true;
     const html = editor();
-    for (const text of ['placeholder="Add title"', '<select aria-label="Repeat"', "Assign a bot", "Runs the whole job on the bot&#x27;s cloud desktop", "Post results to", "Routine type", "New event"]) {
+    for (const text of ['placeholder="Add title"', '<select aria-label="Repeat"', "Assign a bot", "Runs the whole job on the bot&#x27;s cloud desktop", "Post future results to", "Routine type", "New event"]) {
       expect(html, text).toContain(text);
     }
     expect(html).not.toContain("More options");
@@ -424,7 +424,7 @@ describe("a new routine's audience on a team's Cloud", () => {
     const html = form.html();
     expect(html).toContain('data-routine-audience="me"');
     expect(html).toContain("Private · only you");
-    expect(html, "More options stays closed").not.toContain("Post results to");
+    expect(html, "More options stays closed").not.toContain("Post future results to");
     opened(quotes);
     expect(opened(quotes).saved().resultsThreadId).toBe("just-me");
   });

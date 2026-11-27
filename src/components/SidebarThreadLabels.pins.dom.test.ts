@@ -3,6 +3,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Bot, Task } from "@/state/store";
+import { setThreadsUnfolded } from "@/lib/thread-fold-preferences";
 import { SidebarThreadLabels } from "./SidebarThreadLabels";
 
 let container: HTMLDivElement, root: Root;
@@ -19,6 +20,7 @@ const show = (pinned: boolean) => act(async () => root.render(createElement(Side
 const row = () => container.querySelector('[data-thread-label="weekly"]');
 
 it("keeps a pinned thread under its folded bot, marked, and folds it away with the fold motion once unpinned", async () => {
+  setThreadsUnfolded("counsel", false);
   await show(true);
   expect(row()?.textContent).toContain("weekly");
   expect(row()?.querySelector('[aria-label="Pinned"]')).not.toBeNull();

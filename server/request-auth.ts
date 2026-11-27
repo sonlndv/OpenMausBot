@@ -441,6 +441,7 @@ export const CLIENT_ALLOW: ReadonlyArray<{ methods: readonly string[]; path: Reg
   { methods: ["POST"], path: /^\/api\/tts\/speak$/ },
   // routines: the input carries no cwd or permission field
   { methods: ["GET"], path: /^\/api\/routines$/ },
+  { methods: ["GET"], path: /^\/api\/routine-runs\/[\w-]+\/output$/ },
   { methods: ["POST"], path: /^\/api\/routines$/ },
   { methods: ["PATCH", "DELETE"], path: /^\/api\/routines\/[\w-]+$/ },
   { methods: ["POST"], path: /^\/api\/routines\/[\w-]+\/run$/ },

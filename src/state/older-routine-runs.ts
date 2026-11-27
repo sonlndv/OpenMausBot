@@ -1,20 +1,25 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import type { RoutineRun } from "@/lib/routines";
 import { api } from "./store";
 import { useStoreDispatch, useStoreSelector } from "./store-select";
 
 /** Loads the runs scheduled from `start` up to where the app's window begins, once a view shows dates before it. */
-export function useRoutineRunsFrom(start: number): void {
+export function useRoutineRunsFrom(start: number) {
   const since = useStoreSelector((state) => state.routineRunsSince), dispatch = useStoreDispatch();
+  const [request, setRequest] = useState(0);
+  const [failed, setFailed] = useState<{ start: number; since: number; request: number } | null>(null);
   useEffect(() => {
     if (since === null || start >= since) return;
     let live = true;
     api(`/api/routines?from=${start}&to=${since}`)
       .then(({ runs }) => { if (live && Array.isArray(runs)) dispatch({ type: "routineRunsLoaded", runs, from: start, to: since }); })
-      .catch(() => {});
+      .catch(() => { if (live) setFailed({ start, since, request }); });
     return () => { live = false; };
-  }, [start, since, dispatch]);
+  }, [start, since, dispatch, request]);
+  const pending = since !== null && start < since;
+  const error = pending && failed?.start === start && failed.since === since && failed.request === request;
+  return { loading: pending && !error, error, retry: () => setRequest(value => value + 1) };
 }
 
 /** The run that worked in this conversation; one older than the app's window is loaded when the thread is a run's. */

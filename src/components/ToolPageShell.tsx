@@ -41,6 +41,6 @@ export function ToolPageHeader({ backLabel, onBack, backRef, besideSidebar = tru
   );
 }
 
-export function ToolPageActions({ children }: { children: ReactNode }) {
-  return <div className="ml-auto flex items-center gap-3" style={useMacInset() ? NO_DRAG : undefined}>{children}</div>;
+export function ToolPageActions({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn("ml-auto flex items-center gap-3", className)} style={useMacInset() ? NO_DRAG : undefined}>{children}</div>;
 }

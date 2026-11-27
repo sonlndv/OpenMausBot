@@ -83,6 +83,8 @@ it("reports every run into the bot's main thread while fresh executions, approva
     expect((await currentBot()).mainThreadId).toBe(live);
     const { task: chosenTask } = await api("POST", `/api/bots/${bot.id}/tasks`, { title: "Chosen reports" }, 201);
     const dedicated = chosenTask.threadId as string;
+    const detail = await api("GET", `/api/routine-runs/${completed[0].id}/output`);
+    expect(detail.output).toBe(completed[0].output);
     await api("PATCH", `/api/routines/${routine.id}`, { resultsThreadId: dedicated });
     expect((await api("PATCH", `/api/routines/${routine.id}`, { name: "Retained destination" })).routine.resultsThreadId).toBe(dedicated);
     expect((await api("PATCH", `/api/routines/${routine.id}`, { resultsThreadId: null })).routine.resultsThreadId).toBeUndefined();

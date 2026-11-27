@@ -4,7 +4,6 @@ import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Bot, Task } from "@/state/store";
-import { setThreadsUnfolded } from "@/lib/thread-fold-preferences";
 import { SidebarThreadLabels } from "./SidebarThreadLabels";
 
 const now = Date.now();
@@ -24,7 +23,6 @@ const marked = () => [...host.querySelectorAll("[data-main-thread-mark]")].map((
 
 beforeEach(() => {
   localStorage.clear();
-  setThreadsUnfolded("research", true);
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
@@ -34,16 +32,10 @@ afterEach(() => {
   host.remove();
 });
 
-describe("a bot's threads unfolded under its row in Simple mode", () => {
-  it("marks the bot's main thread, and no other row, with a mark a long title cannot push out", () => {
+describe("a web bot's threads shown under its row by default in Simple mode", () => {
+  it("shows the main conversation as an ordinary session in the browser", () => {
     render(research({ mainThreadId: "home" }));
-    expect(marked()).toEqual(["home"]);
-    const mark = host.querySelector("[data-main-thread-mark]")!;
-    expect([mark.getAttribute("role"), mark.getAttribute("aria-label"), mark.textContent]).toEqual(["img", "Main thread", "Main"]);
-    expect(mark.className).toContain("shrink-0");
-    render(research({ mainThreadId: "deck" }));
-    expect(marked()).toEqual(["deck"]);
-    render(research());
+    expect(host.querySelector('[data-thread-label="home"]')?.textContent).toContain("A long title");
     expect(marked()).toEqual([]);
   });
 });

@@ -27,7 +27,7 @@ import {
 import { BotAvatar } from "@/components/Avatar";
 import { useBotEditor } from "./bot-settings/BotEditorContext";
 import { pathForFile } from "@/components/ComposerAttachments";
-import { ResultsDestination, resultsOfPlace, RoutineAudience } from "@/components/routines/ResultsDestination";
+import { defaultResultsTitle, ResultsDestination, resultsDestinationLabel, resultsOfPlace, RoutineAudience } from "@/components/routines/ResultsDestination";
 import { CronScheduleFields, CronSchedulePreview } from "@/components/routines/CronScheduleFields";
 import { cronChoiceFor, cronDraftFor, cronEditorValue, isCronChoice, type CronChoice } from "@/components/routines/cron-editor";
 import { partlyDone, routineRunLabel, routineRunsOn, routineRunText, routineRunTime, routineScheduleState } from "@/lib/routine-display";
@@ -1283,7 +1283,7 @@ export function EventDetails({
     ? [...state.bots, ...state.groups].find((owner) => owner.threadId === resultsThreadId || owner.tasks?.some((task) => task.threadId === resultsThreadId))
     : undefined;
   const resultsTitle = !resultsThreadId
-    ? t("routines.results.main")
+    ? defaultResultsTitle(primary)
     : resultsOwner?.tasks?.find((task) => task.threadId === resultsThreadId)?.title ?? resultsOwner?.name ?? t("routines.results.missing");
 
   return (
@@ -1329,7 +1329,7 @@ export function EventDetails({
             <div className="mt-0.5 text-[11px] leading-relaxed text-ink-secondary">{runsOn.hint}</div>
           </DrawerField>
         )}
-        {!isCall && !isRoomGoal && <DrawerField label={t("routines.results.label")}><div className="text-[13px] text-ink">{resultsTitle}</div></DrawerField>}
+        {!isCall && !isRoomGoal && <DrawerField label={resultsDestinationLabel()}><div className="text-[13px] text-ink">{resultsTitle}</div></DrawerField>}
         {attachments.length > 0 && <DrawerField label={t("routines.drawer.attachments")}><AttachmentChips attachments={attachments} />{call && <div className="mt-1.5 text-[11px] leading-relaxed text-ink-secondary">{t(call.botIds.length > 1 ? "routines.drawer.callSharedHelp" : "routines.drawer.callKeptHelp")}</div>}</DrawerField>}
         {advanced && !isCall && <DrawerField label={t("routines.drawer.runLimit")}><div className="text-[13px] text-ink">{safetyLimit == null ? t("routines.drawer.noTimeLimit", { duration: durationLabel(isRoomGoal ? (state.routineRunLimits?.goalMinutes ?? ROUTINE_GOAL_RUN_LIMIT_MINUTES) : (state.routineRunLimits?.runMinutes ?? ROUTINE_RUN_LIMIT_MINUTES)) }) : t("routines.drawer.stopsAfter", { duration: durationLabel(safetyLimit) })}</div></DrawerField>}
         {!isCall && (

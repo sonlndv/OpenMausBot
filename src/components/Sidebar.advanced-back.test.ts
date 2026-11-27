@@ -1,6 +1,4 @@
 // @vitest-environment happy-dom
-// The real mode and thread preferences: a browser put back on Advanced mode at boot sees its thread folders in the
-// sidebar again; Simple mode keeps one conversation per bot there.
 import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
@@ -23,7 +21,7 @@ settleInterfaceMode();
 const { readAdvancedMode, setAdvancedMode } = await import("@/lib/interface-mode");
 const { Sidebar } = await import("./Sidebar");
 const { BotEditorStore, initialState } = await import("@/state/store");
-const { setLocale, t } = await import("@/lib/i18n");
+const { setLocale } = await import("@/lib/i18n");
 
 const thread = (threadId: string, title: string, projectId?: string): Task =>
   ({ threadId, title, createdAt: 1, busy: false, activity: "idle", modelSelection: { instanceId: "test", model: "m" }, approvalMode: "ask", projectId });
@@ -39,14 +37,11 @@ const state: AppState = {
 };
 let root: Root;
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-async function draw() {
-  const value = { state, dispatch: vi.fn(), flushBotPatches: async () => null, refreshInstances: async () => {}, refreshModels: async () => {} };
+async function draw(bots = state.bots) {
+  const value = { state: { ...state, bots }, dispatch: vi.fn(), flushBotPatches: async () => null, refreshInstances: async () => {}, refreshModels: async () => {} };
   flushSync(() => root.render(createElement(BotEditorStore, { value, children: createElement(Sidebar, { open: true, onClose: () => {} }) })));
   await settle();
 }
-// Simple mode's hover list carries the same name as the tree's disclosure, so the tree's is the one that is not the list's.
-const expand = () => document.querySelector<HTMLButtonElement>(`button[aria-label="${t("task.expandNamed", { name: "Atlas" })}"]:not([data-bot-threads-fold])`);
-const peek = () => document.querySelector('[data-bot-threads-fold="atlas"]');
 const folder = () => document.querySelector('[data-sidebar-folder-row="taxes"]');
 
 beforeAll(() => {
@@ -66,22 +61,26 @@ describe("thread folders after Advanced mode comes back", () => {
     expect(readAdvancedMode()).toBe(true);
     expect(stored.has("omb-show-threads")).toBe(false);
     await draw();
-    expect(folder(), "folded until opened").toBeNull();
-    flushSync(() => expand()!.click());
-    await settle();
     expect(folder()?.textContent).toContain("Taxes");
     expect(document.querySelector('[data-sidebar-thread-row="loose"]')).not.toBeNull();
   });
 
-  it("hides them in Simple mode and shows them again when switched back", async () => {
+  it("keeps the same folder and thread controls when switching between Simple and Advanced", async () => {
     flushSync(() => setAdvancedMode(false));
     await draw();
-    expect(folder()).toBeNull();
-    expect(expand()).toBeNull();
-    expect(peek(), "the chevron unfolds the threads under the row instead").not.toBeNull();
+    expect(folder()?.textContent).toContain("Taxes");
+    expect(document.querySelector('[data-sidebar-thread-row="filed"]')).not.toBeNull();
     flushSync(() => setAdvancedMode(true));
     await draw();
-    expect(peek()).toBeNull();
     expect(folder()?.textContent).toContain("Taxes");
+  });
+
+  it("gives a pinned bot with one session a thread action menu in Simple mode", async () => {
+    flushSync(() => setAdvancedMode(false));
+    await draw([{ ...atlas, pinned: true, projects: [], tasks: [thread("loose", "Project planning")] }]);
+    const pinned = document.querySelector('[data-sidebar-section-id="builtin:pinned"]');
+    const row = pinned?.querySelector('[data-sidebar-thread-row="loose"]');
+    expect(row?.textContent).toContain("Project planning");
+    expect(row?.parentElement?.querySelector('button[aria-expanded]')).toBeTruthy();
   });
 });

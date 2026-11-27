@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import { nextRename } from "@/lib/rename";
 import { localizedTaskTitle } from "@/lib/task-title";
-import { setThreadsUnfolded, useThreadsUnfolded } from "@/lib/thread-fold-preferences";
+import { browserSidebar, setThreadsUnfolded, useThreadsUnfolded } from "@/lib/thread-fold-preferences";
 import type { Action, AppState, Bot } from "@/state/store";
 import { botOpensTo } from "@/state/thread-navigation";
 import { canUnfold, openThreadPinned, threadLabels, type LabelRow } from "./sidebar-thread-labels";
@@ -192,7 +192,7 @@ export function SidebarThreadLabels({ bot, selected, drafting = false, rowThread
                 <span dir="auto" className="min-w-0 truncate">{title}</span>
                 {row.pinned && <Pin size={10} role="img" aria-label={t("task.pinned")} className="shrink-0 text-ink-tertiary" />}
               </span>
-              {row.task.threadId === bot.mainThreadId && <MainThreadMark />}
+              {!browserSidebar() && row.task.threadId === bot.mainThreadId && <MainThreadMark />}
               <span className={cn("flex shrink-0 items-center", hideable(row) && "transition-opacity duration-[120ms] group-hover/label:opacity-0 motion-reduce:transition-none")}>
                 <StatusMark row={row} />
               </span>

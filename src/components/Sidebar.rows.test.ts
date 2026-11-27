@@ -5,6 +5,7 @@ import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { AppState, Bot, InstanceInfo, Message, Task } from "@/state/store";
+import { StoreRefContext } from "@/state/store-ref-context";
 
 const renders = vi.hoisted(() => ({ bots: [] as string[], threads: [] as string[] }));
 vi.mock("./RenameTitle", () => ({
@@ -34,7 +35,7 @@ vi.mock("@/lib/analytics", () => ({ track: vi.fn() }));
 vi.mock("@/lib/cloud-guest", () => ({ useCanWriteIn: () => true }));
 
 const { Sidebar } = await import("./Sidebar");
-const { BotEditorStore, initialState, reducer } = await import("@/state/store");
+const { StoreContext, initialState, reducer } = await import("@/state/store");
 const { setLocale, t } = await import("@/lib/i18n");
 
 const HOUR = 3_600_000;
@@ -68,11 +69,13 @@ let state: AppState = {
   instances: [{ instanceId: "test", driverKind: "codex", displayName: "Test", snapshot: { state: "available" } } as InstanceInfo],
 };
 const dispatch = vi.fn();
+const storeRef = { state: () => state, dispatch };
 let root: Root;
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 async function draw() {
   const value = { state, dispatch, flushBotPatches: async () => null, refreshInstances: async () => {}, refreshModels: async () => {} };
-  flushSync(() => root.render(createElement(BotEditorStore, { value, children: createElement(Sidebar, { open: true, onClose: () => {} }) })));
+  flushSync(() => root.render(createElement(StoreRefContext, { value: storeRef },
+    createElement(StoreContext, { value }, createElement(Sidebar, { open: true, onClose: () => {} })))));
   await settle();
 }
 const threadTitles = ["Report draft", "Budget check", "Old notes"];
@@ -108,8 +111,8 @@ beforeAll(async () => {
   document.body.append(container);
   root = createRoot(container);
   await draw();
-  const toggle = document.querySelector<HTMLButtonElement>(`button[aria-label="${t("task.expandNamed", { name: "Atlas" })}"]`);
-  toggle!.click();
+  const foldScout = document.querySelector<HTMLButtonElement>(`button[aria-label="${t("task.collapseNamed", { name: "Scout" })}"]`);
+  foldScout!.click();
   await settle();
 });
 afterAll(() => {

@@ -23,7 +23,8 @@ setAnalyticsEnabled(false);
 if (languageChoice() === null) setLanguageChoice("en");
 // Every launch is a new browser, so it opens in Simple mode as a new install does, unless a test chose a mode first.
 // ?onboarding=1 plays a brand-new install.
-if (localStorage.getItem(ADVANCED_MODE_KEY) == null) setAdvancedMode(false);
+if (new URLSearchParams(location.search).get("mode") === "advanced") setAdvancedMode(true);
+else if (localStorage.getItem(ADVANCED_MODE_KEY) == null) setAdvancedMode(false);
 if (!new URLSearchParams(location.search).has("onboarding")) setEmailGateDone("skipped");
 // Every launch is a new browser, so the once-per-browser Simple mode popup shows only with ?simpleModePrompt=1.
 if (!new URLSearchParams(location.search).has("simpleModePrompt")) markSimpleModePromptSeen();

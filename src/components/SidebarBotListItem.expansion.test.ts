@@ -11,6 +11,7 @@ const fixture = vi.hoisted(() => ({
 vi.mock("react", async (original) => {
   const actual = await original<typeof import("react")>();
   return { ...actual,
+    useContext: (context: Parameters<typeof actual.useContext>[0]) => fixture.capturing ? null : actual.useContext(context),
     useState: (initial: unknown) => {
       if (!fixture.capturing) return actual.useState(initial);
       const index = fixture.cursor++;

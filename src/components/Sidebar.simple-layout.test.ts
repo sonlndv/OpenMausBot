@@ -37,6 +37,7 @@ vi.mock("./DesktopCapabilities", async () => {
 });
 vi.mock("@/lib/thread-preferences", () => ({ useShowThreads: () => fixture.advanced }));
 vi.mock("@/lib/interface-mode", () => ({ useAdvancedMode: () => fixture.advanced, setAdvancedMode: () => {} }));
+vi.mock("@/state/store-ref", async (original) => ({ ...await original<typeof import("@/state/store-ref")>(), useStoreRef: () => ({ state: () => fixture.state }) }));
 vi.mock("@/state/store-select", async (importOriginal) => (await import("@/testing/plain-store-select")).plainStoreSelect(await importOriginal()));
 vi.mock("@/state/store", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/state/store")>();
@@ -96,7 +97,7 @@ beforeEach(() => {
     groups: [room],
     sections: ["Work"],
   };
-  vi.stubGlobal("window", Object.assign(new EventTarget(), { innerWidth: 1280, innerHeight: 800, ogb: undefined, setTimeout, clearTimeout }));
+  vi.stubGlobal("window", Object.assign(new EventTarget(), { innerWidth: 1280, innerHeight: 800, ogb: { platform: "linux" }, setTimeout, clearTimeout }));
   vi.stubGlobal("document", { body: {} });
   vi.stubGlobal("localStorage", {
     getItem: (key: string) => fixture.storage.get(key) ?? null,
@@ -121,6 +122,14 @@ describe("Simple-mode sidebar layout", () => {
     expect(lines[1]!.props.onMenu).toBeTypeOf("function");
     expect(labelled(tree, "Add or remove bots in Work")).toBe(false);
     expect(tree.some((node) => node.type === SidebarTileGrid)).toBe(false);
+  });
+
+  it("lists the Chief and pinned bots as expandable rows in the browser", () => {
+    delete window.ogb;
+    fixture.state = { ...fixture.state, bots: [bot("chief", { chiefOfStaff: true }), bot("atlas", { pinned: true }), bot("bea")] };
+    const { tree } = render();
+    expect(tree.some((node) => node.type === SidebarTileGrid)).toBe(false);
+    expect(listedBots(tree)).toEqual(expect.arrayContaining(["chief", "atlas", "bea"]));
   });
 
   it("shows the Chief and the pinned bots as tiles above the rows, with no Pinned or Bots heading", () => {

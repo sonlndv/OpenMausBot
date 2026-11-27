@@ -526,3 +526,82 @@ describe("a run that waits on the person", () => {
     expect(cancel(panel("completed"))).toBeNull();
   });
 });
+
+describe("Automation output", () => {
+  it("shows the delivered file when the scheduled reply has no text", async () => {
+    const { AutomationOutput } = await import("./AutomationOutput");
+    fixture.state = {
+      ...fixture.state, groups: [], routineRunsSince: null, routineRuns: [{
+        id: "file-run", routineName: "Daily brief", routineId: "brief", botId: "bot-a", target: "bot",
+        status: "completed", createdAt: now, report: { state: "posted", threadId: "thread-a", messageId: "report" },
+      }],
+    };
+    fixture.api.mockResolvedValue({ output: "", attachments: [{ kind: "file", path: "/brief.pdf", name: "brief.pdf", mime: "application/pdf" }] });
+    const container = mount(createElement(AutomationOutput, { botFilter: "all", department: "all", runId: "file-run" }));
+    await vi.waitFor(() => expect(container.querySelector("article")?.textContent).toContain("brief.pdf"));
+    expect(container.querySelector("article")?.textContent).not.toContain("No output");
+  });
+
+  it("pages published results, filters across pages and skips quiet runs", async () => {
+    const { AutomationOutput } = await import("./AutomationOutput");
+    const runs = Array.from({ length: 31 }, (_, index) => ({
+      id: String(index), routineName: "Brief", routineId: "brief", botId: botA.id,
+      status: index === 0 ? "failed" : "completed", createdAt: now + index, output: "Report",
+    }));
+    fixture.state.routineRunsSince = null;
+    fixture.state.routineRuns = [...runs, { ...runs[0], id: "silent", report: { state: "quiet" } }];
+    const container = mount(createElement(AutomationOutput, { botFilter: "all", department: "all" }));
+    const rows = () => container.querySelectorAll("[data-run-id]");
+    expect(rows()).toHaveLength(25);
+    const select = container.querySelector("select")!;
+    const filter = (value: string) => flushSync(() => {
+      select.value = value;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    filter("failed");
+    expect([...rows()].map(row => row.getAttribute("data-run-id"))).toEqual(["0"]);
+    filter("all");
+    flushSync(() => button(container, "Show more runs").click());
+    expect(rows()).toHaveLength(31);
+    flushSync(() => button(container, "By automation").click());
+    expect(rows()).toHaveLength(0);
+    flushSync(() => container.querySelector("summary")!.click());
+    expect(rows()).toHaveLength(25);
+  });
+
+  it("groups dated runs by automation and opens the selected run even if another reply finishes loading later", async () => {
+    const { AutomationOutput } = await import("./AutomationOutput");
+    fixture.state = {
+      ...fixture.state, groups: [], routineRunsSince: null,
+      routineRuns: [
+        { id: "earlier", routineName: "Morning notes", routineId: "morning", botId: "bot-a", target: "bot", status: "completed", createdAt: now - 1000, output: "## Earlier excerpt\n\n- Draft one" },
+        { id: "latest", routineName: "Morning notes", routineId: "morning", botId: "bot-a", target: "bot", status: "completed", createdAt: now, output: "Latest excerpt" },
+      ],
+    };
+    const page = (runId?: string) => createElement(AutomationOutput, { botFilter: "all", department: "all", runId });
+    const container = mount(page());
+    const order = () => [...container.querySelectorAll<HTMLButtonElement>("button[data-run-id]")].map(row => row.dataset.runId);
+    expect(order()).toEqual(["latest", "earlier"]);
+    expect(container.querySelector(".md-heading")?.textContent).toBe("Earlier excerpt");
+    expect(container.textContent).toContain("Draft one");
+    flushSync(() => button(container, "By automation").click());
+    expect(container.querySelectorAll("details")).toHaveLength(1);
+    flushSync(() => container.querySelector("summary")!.click());
+    flushSync(() => container.querySelector<HTMLButtonElement>('[data-run-id="earlier"]')!.click());
+    expect(fixture.dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: "showRoutines", view: "output", runId: "earlier" }));
+
+    let finishEarlier!: (result: { output: string }) => void;
+    fixture.api.mockImplementation(async (path) => path === "/api/routine-runs/earlier/output"
+      ? await new Promise(resolve => { finishEarlier = resolve; }) : { output: "Latest full result" });
+    flushSync(() => root!.render(page("earlier")));
+    expect(container.querySelector("article")?.textContent).toContain("Earlier excerpt");
+    flushSync(() => root!.render(page("latest")));
+    await vi.waitFor(() => expect(container.querySelector("article")?.textContent).toContain("Latest full result"));
+    finishEarlier({ output: "Earlier full result" });
+    await new Promise(resolve => setTimeout(resolve));
+    expect(container.querySelector("article")?.textContent).not.toContain("Earlier");
+    flushSync(() => root!.render(page()));
+    expect(container.querySelector("details")?.open).toBe(true);
+    expect(document.activeElement?.getAttribute("data-run-id")).toBe("earlier");
+  });
+});

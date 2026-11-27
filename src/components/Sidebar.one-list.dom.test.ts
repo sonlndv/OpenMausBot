@@ -94,7 +94,7 @@ async function htmlWith(ogb: unknown, bots = OWN): Promise<string> {
 
 describe("switch off: nothing changes", () => {
   for (const advanced of [false, true]) {
-    it(`the ${advanced ? "Advanced" : "Simple"} sidebar is the same with the switch off, with main never answering, and in a browser`, async () => {
+    it(`the ${advanced ? "Advanced" : "Simple"} sidebar shows only local bots when the switch is off or the bridge is unavailable`, async () => {
       mode.advanced = advanced;
       const bots = [...OWN, bot("nova", { unread: true, tasks: [{ threadId: "nova-t", title: "Chat", createdAt: 1, unread: true }] })];
       const browser = await htmlWith(null, bots);
@@ -102,8 +102,9 @@ describe("switch off: nothing changes", () => {
       const off = await htmlWith({ placesTogether: page }, bots);
       answer = () => new Promise(() => {});
       const silent = await htmlWith({ placesTogether: page }, bots);
-      expect(off).toBe(browser);
-      expect(silent).toBe(browser);
+      expect(silent).toBe(off);
+      expect(browser).toContain('data-sidebar-bot-row="git"');
+      expect(browser).not.toContain('data-sidebar-bot-row="cloud:scout"');
       expect(browser).not.toContain("data-bot-place");
       expect(page.state).toHaveBeenCalled();
     });
@@ -234,7 +235,7 @@ describe("switch on: one list", () => {
     resetPlacesTogetherForTest(); resetPlaceRowsForTest();
     root = createRoot(host);
     const cloudBots = [bot("maus", { chiefOfStaff: true }), bot("scout"), bot("atlas")];
-    const offline = await htmlWith(null, cloudBots);
+    const offline = await htmlWith({}, cloudBots);
     answer = async () => said({ here: "cloud", other: { home: "computer", state: "ready", bots: [row("git", { home: "computer", unread: true }), row("ledger", { home: "computer" })] } });
     const cloudPage = await htmlWith({ placesTogether: page }, cloudBots);
     answer = async () => said({ here: "cloud", other: { home: "computer", state: "offline", bots: [] } });

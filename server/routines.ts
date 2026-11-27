@@ -536,6 +536,11 @@ export class RoutineManager {
     );
   }
 
+  runById(id: string): RoutineRun | null {
+    const run = this.runs.find((candidate) => candidate.id === id);
+    return run ? cloneRun(run) : null;
+  }
+
   runForThread(threadId: string): RoutineRun | null {
     const run = this.runs.findLast((candidate) => candidate.threadId === threadId && ["running", "waiting"].includes(candidate.status)) ??
       this.runs.findLast((candidate) => candidate.threadId === threadId);

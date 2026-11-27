@@ -1,3 +1,4 @@
+import { browserSidebar, setThreadsUnfolded, threadsUnfolded } from "@/lib/thread-fold-preferences";
 import { PaneLayoutMenu } from "./PaneLayoutMenu";
 import { WorkspaceChatContext } from "@/state/workspace-chat-context";
 import { startPaneDrag } from "@/lib/workspace-pane-drag";
@@ -480,8 +481,7 @@ export function BotThreadList({ bot, selected, drafting, query, pendingQueued, r
   const botId = bot.id;
   const actions = useMemo(() => ({
     onSelect: (task: { threadId: string }) => {
-      if (task.threadId !== latest.current.threadId) dispatch({ type: "switchTask", botId, threadId: task.threadId });
-      else dispatch({ type: "select", id: botId });
+      dispatch({ type: "switchTask", botId, threadId: task.threadId });
     },
     ...threadRowActions(botId, dispatch),
     onRefreshPermissions: (task: { threadId: string }) => {
@@ -682,14 +682,15 @@ export const BotListItem = memo(function BotListItem(props: BotRowProps) {
   const paneChat = useContext(WorkspaceChatContext);
   const advanced = useAdvancedMode();
   const { bot, selected, deleting, mascotMotion, reveal, pendingQueued, instances, liveCall, density, query, dispatch, onMenu, renameRequest, botDrag: drag, botDrop: drop, botDragging: dragging } = props;
-  const showThreads = useShowThreads();
+  const webTaskList = browserSidebar() && density !== "icons";
+  const showThreads = useShowThreads() || (webTaskList && !advanced);
   const liveMedia = useLiveMedia();
   const remoteClient = typeof window !== "undefined" && window.ogb?.remoteClient?.active === true, placed = isPlacedBot(bot);
   const [renaming, setRenaming] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
-  const [threadsOpen, setThreadsOpen] = useSearchDisclosure(`bot:${bot.id}`, showThreads ? query : "", searchMatchesThreads(query, bot.tasks, bot.projects));
+  const [threadsOpen, setThreadsOpen] = useSearchDisclosure(`bot:${bot.id}`, showThreads ? query : "", searchMatchesThreads(query, bot.tasks, bot.projects), webTaskList && threadsUnfolded(bot.id));
   useEffect(() => { if (reveal && showThreads) setThreadsOpen(true); }, [reveal, showThreads]);
-  const hasThreadList = !placed && ((bot.tasks?.filter((task) => !task.routineRunId).length ?? 1) > 1 || (bot.projects?.length ?? 0) > 0 || Boolean(query));
+  const hasThreadList = !placed && (webTaskList || (bot.tasks?.filter((task) => !task.routineRunId).length ?? 1) > 1 || (bot.projects?.length ?? 0) > 0 || Boolean(query));
   const iconOnly = density === "icons";
   const expanded = showThreads && !iconOnly && threadsOpen && hasThreadList;
   useEffect(() => { if (iconOnly) setRenaming(false); }, [iconOnly]);
@@ -874,7 +875,10 @@ export const BotListItem = memo(function BotListItem(props: BotRowProps) {
         type="button"
         aria-label={t(threadsOpen ? "task.collapseNamed" : "task.expandNamed", { name: bot.name })}
         aria-expanded={threadsOpen}
-        onClick={() => setThreadsOpen((open) => !open)}
+        onClick={() => {
+          if (webTaskList && !query) setThreadsUnfolded(bot.id, !threadsOpen);
+          setThreadsOpen(!threadsOpen);
+        }}
         className="absolute left-0.5 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-ink-secondary outline-none hover:text-ink focus-visible:ring-1 focus-visible:ring-accent/60"
       ><ChevronRight aria-hidden="true" size={13} className={cn("transition-transform", threadsOpen && "rotate-90")} /></button>}
       {!renaming && iconOnly && unread && (
@@ -895,7 +899,7 @@ export const BotListItem = memo(function BotListItem(props: BotRowProps) {
         </span>
       )}
     </div>
-    {advanced && !iconOnly && threadsOpen && hasThreadList && <BotThreadList {...props} hidden={!showThreads}
+    {(advanced || webTaskList) && !iconOnly && threadsOpen && hasThreadList && <BotThreadList {...props} hidden={!showThreads}
       activityLabel={liveActivityLabel(sidebarMessage(last))}
       query={bot.name.toLowerCase().includes(query.toLowerCase()) || bot.title.toLowerCase().includes(query.toLowerCase()) ? "" : query} />}
     {simpleRow ? <SidebarThreadLabels bot={bot} selected={selected} drafting={props.drafting} rowThreadId={selected ? bot.threadId : botOpensTo(bot, showThreads)} pendingQueued={pendingQueued} dispatch={dispatch} /> : (advanced || (!iconOnly && (waiting || unread || bot.tasks?.some(runningRoutineRun)))) && <SidebarBotActivity bot={bot} rowThreadId={selected ? bot.threadId : botOpensTo(bot, showThreads)} density={density} pendingQueued={pendingQueued} dispatch={dispatch} waitingOnly={!advanced} runsOnly={expanded} />}
@@ -966,6 +970,8 @@ export const Sidebar = memo(function Sidebar({ open, onClose, showPaneLayout = f
   const density = collapseToIcons ? "icons" : storedDensity;
   const simple = !advanced && density !== "icons";
   const simpleDesk = simple && !phone;
+  const webRows = browserSidebar() && density !== "icons";
+  const tileLayout = simpleDesk && !webRows;
   const rail = !advanced && density === "icons";
   const sidePanelOpen = state.computerOpen || state.inspectorOpen || besidePanel;
   const sizing = useSidebarWidth({ simple: !advanced, sidePanelOpen, sidebarRef });
@@ -1078,7 +1084,7 @@ export const Sidebar = memo(function Sidebar({ open, onClose, showPaneLayout = f
   const visibleGroups = sideLists.groups.filter((g) => !q || g.name.toLowerCase().includes(q) || g.tasks?.some((task) => task.title.toLowerCase().includes(q)));
   const viewerEmail = useViewerEmail(), placed = useOtherPlaceBots(q), placeHere = useOneListHere();
   const parts = partitionSidebarBots(botDrag.preview(matchingBots), { universalPins, viewerEmail, welcoming: useWelcomingBot(), searching: Boolean(q) });
-  const saved = withOtherPlace(simpleDesk ? withPrimaryTile(parts, myDefaultBot(state.bots, viewerEmail)?.id) : { ...parts, primary: null }, placed);
+  const saved = withOtherPlace(tileLayout ? withPrimaryTile(parts, myDefaultBot(state.bots, viewerEmail)?.id) : { ...parts, primary: null }, placed);
   // Rows keep their place while the app is in use: unread, work and a wait on the person show as marks on the row, never
   // as a move to the top or into an Unread list. Only a pin, a drag, Alt+Up/Down or a move to a department moves a row.
   const floats = () => false;
@@ -1089,7 +1095,7 @@ export const Sidebar = memo(function Sidebar({ open, onClose, showPaneLayout = f
   const sectionNames = sectionsInUse([...(state.sections ?? []).filter((name) => !q || name.toLowerCase().includes(q.toLowerCase())), ...botDrag.pending], [...filed, ...sectionedRooms]);
   const drops = botDrag.arrange({ enabled: (sections.interactive || density === "icons") && !phone, withinList: density === "icons", main: ownRows(inPlace.unsectionedBots), sectioned: inPlace.sectionedBots, departments: sectionNames, bots: state.bots, taken: departmentNames(state), floats });
   const naturalSectionIds = [
-    ...(pinnedBots.length > 0 && !universalPins && !simpleDesk ? [PINNED_SECTION_ID] : []),
+    ...(pinnedBots.length > 0 && (webRows || (!universalPins && !simpleDesk)) ? [PINNED_SECTION_ID] : []),
     ...(unsectionedRooms.length > 0 ? [CHANNELS_SECTION_ID] : []),
     ...(botChats.length > 0 ? [BOT_CHATS_SECTION_ID] : []),
     ...(unsectionedBots.length > 0 || drops.slot ? [BOTS_SECTION_ID] : []),
@@ -1097,8 +1103,8 @@ export const Sidebar = memo(function Sidebar({ open, onClose, showPaneLayout = f
   ];
   const layout = sections.arrange(naturalSectionIds);
   const sectionIds = withUnreadSection(layout.sectionIds, unreadBots.length > 0);
-  const showPinnedCircleThreads = !simpleDesk && pinnedCircleThreadListVisible(pinnedCircles, density, pinnedBots.length);
-  const tiles = simpleDesk && (primary !== null || pinnedBots.length > 0);
+  const showPinnedCircleThreads = !webRows && !simpleDesk && pinnedCircleThreadListVisible(pinnedCircles, density, pinnedBots.length);
+  const tiles = tileLayout && (primary !== null || pinnedBots.length > 0);
   const { interactive: layoutInteractive, collapsed: sectionCollapsed, toggle: toggleSection } = sections;
   const archivedBots = state.bots.filter((bot) => bot.hidden && !bot.movedTo);
   const archivedEntry = remoteClient ? undefined : { count: archivedBots.length, open: () => setArchivedBotsOpen(true) };
@@ -1294,7 +1300,7 @@ export const Sidebar = memo(function Sidebar({ open, onClose, showPaneLayout = f
         </div>
       </div>}
       {!q && <TeamSideSwitch compact={density === "icons"} listOnly={phone} />}{!q && <SidebarInboxRow icons={density === "icons"} large={!advanced} running={showAttention ? attentionHasRunningWork(attention) : hasCrossBotRunningWork(state.bots, state.pendingQueued, state.groups)} onOpened={phone ? onClose : undefined} />}
-      {universalPins && pinnedBots.length > 0 && !simpleDesk && (
+      {!webRows && universalPins && pinnedBots.length > 0 && !simpleDesk && (
         <div
           data-sidebar-universal-pins=""
           // vh, not %: a percentage has no height to resolve against inside the glass head.
@@ -1326,7 +1332,7 @@ export const Sidebar = memo(function Sidebar({ open, onClose, showPaneLayout = f
       )}
 
       {tiles && <SidebarTileGrid primary={primary} pinned={pinnedBots} row={botRow} corner={corner} />}
-      {simpleDesk && !tiles && <SidebarNoBots />}
+      {tileLayout && !tiles && <SidebarNoBots />}
       </GlassBar>
 
       {!collapseToIcons && !phone && <SidebarResizeHandle sizing={sizing} sidebarRef={sidebarRef} avatars={density === "icons"} avatarsWidth={rail ? 92 : 80}
@@ -1338,7 +1344,7 @@ export const Sidebar = memo(function Sidebar({ open, onClose, showPaneLayout = f
             <div className="px-3 py-6 text-center text-[13px] text-ink-secondary">{t("sidebar.noMatch", { query })}</div>
           )}
           {!q && <NeedsYouButton compact={rail} />}{!q && <SidebarPeople compact={rail} onOpened={phone ? onClose : undefined} />}
-          {unsectionedChief && (phone ? (
+          {unsectionedChief && (phone && !webRows ? (
             <PhoneHero bot={unsectionedChief} selected={botRow(unsectionedChief).selected} onOpen={() => openBotRow(dispatch, unsectionedChief, showThreads, botRow(unsectionedChief).selected)} onMenu={setMenu} />
           ) : (
             <div className="mb-1.5">
@@ -1426,7 +1432,7 @@ export const Sidebar = memo(function Sidebar({ open, onClose, showPaneLayout = f
                         onMenu={setRoomMenu}
                       />
                     )))}
-                    {id === PINNED_SECTION_ID ? (
+                    {id === PINNED_SECTION_ID && !webRows ? (
                       <PinnedBotRoster
                         bots={sectionBotItems}
                         density={density}
