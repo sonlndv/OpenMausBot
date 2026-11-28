@@ -742,11 +742,11 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
   const wrapPhoneHeader = phone && advanced && !paneTitle;
   const compactMenu = compactHeader && (!remoteClient || Boolean(paneTitle));
   const simpleHead = !advanced && !remoteClient;
-  const pillSwitcher = phone && !remoteClient && !isPlaceId(bot.id) && !inForkPanel && !paneTitle;
+  const placed = isPlaceId(bot.id);
+  const pillSwitcher = phone && !remoteClient && !placed && !inForkPanel && !paneTitle;
   const headTabs = useThreadTabsShown() && !pillSwitcher && !inForkPanel && !paneTitle;
   useTabsFrameOnRoot(headTabs ? (simpleHead ? "simple" : "advanced") : undefined);
   const canWrite = useCanWriteIn(bot.threadId, bot.yourAccess), mayWrite = canWrite !== false;
-  const placed = isPlaceId(bot.id);
   const computerStarting = computerStartLine(state.computerStart, bot.name); useScreensWhile(Boolean(computerStarting));
   const mascotMotion = state.mascotMotion;
   const [findOpen, setFindOpen] = useState(false);
@@ -909,15 +909,13 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
     <main data-look="chat" className="relative flex h-full min-w-0 flex-1 flex-col bg-app">
       <ChatBackdrop /><CallOverlay bot={bot} />
       <GlassScrollFrame className="flex-1 [--glass-tint:var(--color-app)]">
-      {/* z-[25]: above the room set-up card (z-20), below the CallOverlay (z-30). */}
       <GlassBar edge="top" fade={!remoteClient} data-chathead-float={simpleHead ? "" : undefined} className="z-[25]">
       <div {...headerDragProps} data-look="chat-header" data-chathead-tabs={headTabs ? (simpleHead ? "simple" : "advanced") : undefined} className={chatHeaderContainer(Boolean(paneTitle), simpleHead)}>
         <div data-chathead-row className={cn("flex items-center justify-between", compactHeader ? "gap-2" : "@max-[30rem]/chathead:flex-wrap @max-[30rem]/chathead:gap-y-1 @min-[30rem]/chathead:grid @min-[30rem]/chathead:grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(max-content,1fr)]", wrapPhoneHeader && "flex-wrap")}>{advanced && !inForkPanel && !pillSwitcher && <ChatActivityControls key={bot.threadId} activity={activity} compact={Boolean(paneTitle)} botId={bot.id} style={headerNoDragStyle} />}
         <div data-chathead-identity className={cn("flex min-w-0 items-center gap-2", compactHeader ? "flex-1" : "@max-[30rem]/chathead:basis-full @min-[30rem]/chathead:col-start-2 @min-[30rem]/chathead:justify-self-center", wrapPhoneHeader && !pillSwitcher && "flex-auto", simpleHead && phone && "justify-center")} style={headerNoDragStyle}>{headTabs && <HeaderThreadTabs bot={bot} />}
           {simpleHead || paneTitle || pillSwitcher ? (
-            <ChatHeadPill
+            <ChatHeadPill bot={bot} switcher={pillSwitcher}
               threadTitle={paneTitle ?? undefined}
-              bot={bot} switcher={pillSwitcher}
               avatar={{ state: stateForBot({ ...bot, messages }), motion: headerMotion, motionKey: mascotMotion?.nonce ?? 0, animated: headerAnimated }}
               privacy={privateChat ? { kind: "private" } : ownHelper ? { kind: "ownHelper" } : sharedChat && team ? { kind: "shared", team: team.name, onlyPeopleAdded: bot.onlyPeopleAdded, sharedWith: currentTask?.sharedWith?.name } : null}
               onToggle={(open) => dispatch({ type: "toggleSettings", open, ...(paneTitle && { botId: bot.id, fromPane: inForkPanel }) })}
