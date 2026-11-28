@@ -2095,7 +2095,6 @@
   "chat.emptyPrompt": "Отправьте сообщение, чтобы начать беседу.",
   "chat.chiefOfStaff": "Начальник штаба",
   "chat.openProfile": "Открыть профиль агента",
-  "chat.backToMainThread": "Назад к вашему чату",
   "chat.openProfileAria": "Открыть профиль {name}",
   "chat.showConversations": "Показать беседы {name}",
   "chat.find": "Найти в беседе",

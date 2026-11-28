@@ -1,4 +1,3 @@
-import { browserSidebar } from "@/lib/thread-fold-preferences";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Search, SquarePen } from "lucide-react";
 
@@ -7,7 +6,7 @@ import { activeLocale, t } from "@/lib/i18n";
 import { SIDEBAR_INLINE, useMediaQuery } from "@/lib/use-media-query";
 import { api, currentTaskBot, openBotThread, visibleMessages, type Bot, type Message } from "@/state/store";
 import { lastLine } from "../sidebar-preview";
-import { isArchived, mainThreadFirst, orderedThreadList, SidebarThreadRow, stampClock, threadRecency, threadRowActions, useRelativeNow } from "../SidebarThreadRow";
+import { isArchived, orderedThreadList, SidebarThreadRow, stampClock, threadRecency, threadRowActions, useRelativeNow } from "../SidebarThreadRow";
 import { filterTasks } from "../TaskPicker";
 import { useConversationSide } from "../TeamSideSwitch";
 import { tasksOfSide } from "@/state/team-side";
@@ -83,8 +82,8 @@ export function BotConversations({ bot }: { bot: Bot }) {
   const [showArchived, setShowArchived] = useState(false);
   const [showEnded, setShowEnded] = useState(false);
   const actions = useMemo(() => {
-    const { onRename, onRegenerateTitle, onDelete, onMove, onPin, onSetMain, onArchive, onMemory } = threadRowActions(bot.id, dispatch);
-    return { onRename, onRegenerateTitle, onDelete, onMove, onPin, onSetMain, onArchive, onMemory };
+    const { onRename, onRegenerateTitle, onDelete, onMove, onPin, onArchive, onMemory } = threadRowActions(bot.id, dispatch);
+    return { onRename, onRegenerateTitle, onDelete, onMove, onPin, onArchive, onMemory };
   }, [bot.id, dispatch]);
 
   const side = useConversationSide(bot);
@@ -98,13 +97,11 @@ export function BotConversations({ bot }: { bot: Bot }) {
         turnStartedAt: thread.turnStartedAt ?? undefined, queued: Boolean(state.pendingQueued[task.threadId]?.length),
       };
     });
-  const mainId = browserSidebar() ? undefined : bot.mainThreadId;
-  const kept = (task: (typeof threads)[number]) => task.threadId === bot.threadId || task.threadId === mainId;
-  const conversations = mainThreadFirst(orderedThreadList(threads.filter((task) => kept(task) || (!isArchived(task) && !task.closedBy))), mainId);
-  const ended = orderedThreadList(threads.filter((task) => !kept(task) && !isArchived(task) && Boolean(task.closedBy)));
-  const archived = orderedThreadList(threads.filter((task) => isArchived(task) && !kept(task)));
+  const conversations = orderedThreadList(threads.filter((task) => task.threadId === bot.threadId || (!isArchived(task) && !task.closedBy)));
+  const ended = orderedThreadList(threads.filter((task) => task.threadId !== bot.threadId && !isArchived(task) && Boolean(task.closedBy)));
+  const archived = orderedThreadList(threads.filter((task) => task.threadId !== bot.threadId && isArchived(task)));
   const needle = query.trim();
-  const collapsed = conversations.filter((task, index) => index < CONVERSATIONS_SHOWN || task.threadId === bot.threadId || task.threadId === mainId);
+  const collapsed = conversations.filter((task, index) => index < CONVERSATIONS_SHOWN || task.threadId === bot.threadId);
   const recent = useRecentMessages(bot, [...(needle || expanded ? conversations : collapsed), ...(needle || showEnded ? ended : []), ...(showArchived ? archived : [])]);
   const preview = (threadId: string) => {
     const messages = recent(threadId);
@@ -144,7 +141,7 @@ export function BotConversations({ bot }: { bot: Bot }) {
   const row = (task: (typeof threads)[number]) => (
     <div role="listitem" key={task.threadId} data-conversation={task.threadId}>
       <SidebarThreadRow panel preview={preview(task.threadId)} task={task} ownerId={bot.id} current={task.threadId === bot.threadId}
-        main={task.threadId === mainId} folders={bot.projects} now={stampClock(threadRecency(task), now)} locale={activeLocale()} onSelect={select} {...actions} />
+        folders={bot.projects} now={stampClock(threadRecency(task), now)} locale={activeLocale()} onSelect={select} {...actions} />
     </div>
   );
 

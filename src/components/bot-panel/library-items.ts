@@ -1,4 +1,3 @@
-import { browserSidebar } from "@/lib/thread-fold-preferences";
 import type { BotLibrary } from "../../../shared/bot-library";
 import { t } from "@/lib/i18n";
 import { visibleMessages, type Bot, type Message } from "@/state/store";
@@ -88,10 +87,7 @@ export function allLibraryItems(bot: Bot, local: LibraryItems, remote: BotLibrar
   };
 }
 
-/** The quiet line naming the conversation an item came from, none while the bot has only one: its title, or with threads
- * hidden (Simple mode) "Main thread" for the one the bot opens to. */
-export function threadLabel(bot: Pick<Bot, "threadId" | "mainThreadId" | "tasks">, threadId: string, threadsShown: boolean): string | undefined {
+export function threadLabel(bot: Pick<Bot, "threadId" | "tasks">, threadId: string): string | undefined {
   if (knownThreads(bot).size < 2) return undefined;
-  if (!browserSidebar() && !threadsShown && threadId === bot.mainThreadId) return t("sidebar.bot.simple.mainThread");
   return bot.tasks?.find((task) => task.threadId === threadId)?.title || t("task.newShort");
 }

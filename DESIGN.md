@@ -40,6 +40,7 @@ The app has three places: the **sidebar** (bots and conversations), the
 **chat**, and the **bot panel** (everything about one bot). Put new things
 where they belong instead of adding new places.
 
+- **Same rules on every client.** Omarchy desktop, laptop web and the installed phone and iPad apps share product behavior. Adapt the layout and input controls, not the thread policy. A bot's main destination is routing metadata, not a badge, menu action or reason to rank a conversation first.
 - **No new header buttons.** The chat header shows the bot, its model and its
   screen; Advanced mode's composer shows the model under its field instead. Anything else goes in the bot panel, a menu or the command palette.
   A button that exists only while the conversation has what it shows (its

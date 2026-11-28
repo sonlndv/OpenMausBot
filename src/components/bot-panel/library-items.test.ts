@@ -47,11 +47,10 @@ describe("allLibraryItems", () => {
 });
 
 describe("threadLabel", () => {
-  it("names the conversation, with threads hidden the main one as such, and nothing while there is only one", () => {
-    expect(threadLabel(bot([]), "t2", true)).toBe("Pricing");
-    expect(threadLabel(bot([], { mainThreadId: "t1" }), "t1", false)).toBe("Main thread");
-    expect(threadLabel(bot([], { mainThreadId: "t1" }), "t1", true)).toBe("Launch");
-    expect(threadLabel(bot([], { mainThreadId: "t1" }), "t2", false)).toBe("Pricing");
-    expect(threadLabel(bot([], { tasks: [{ threadId: "t1", title: "Launch", createdAt: 1 }] }), "t1", false)).toBeUndefined();
+  it("names the originating conversation unless the bot has only one", () => {
+    const owner = bot([], { mainThreadId: "t1" });
+    expect(threadLabel(owner, "t1")).toBe("Launch");
+    expect(threadLabel(owner, "t2")).toBe("Pricing");
+    expect(threadLabel(bot([], { tasks: [{ threadId: "t1", title: "Launch", createdAt: 1 }] }), "t1")).toBeUndefined();
   });
 });

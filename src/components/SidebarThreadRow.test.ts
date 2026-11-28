@@ -2,7 +2,7 @@ import { createElement, type ComponentProps, type MemoExoticComponent, type Reac
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "@/lib/i18n";
-import { formatUpdatedAt, mainThreadFirst, nextSnoozeExpiry, orderedSidebarThreads, orderedThreadList, partitionHelperThreads, SidebarThreadRow, stampClock, threadRowActions, threadByline, threadOpenerLabel, threadUpdatedLabel, visibleSidebarThreads } from "./SidebarThreadRow";
+import { formatUpdatedAt, nextSnoozeExpiry, orderedSidebarThreads, orderedThreadList, partitionHelperThreads, SidebarThreadRow, stampClock, threadRowActions, threadByline, threadOpenerLabel, threadUpdatedLabel, visibleSidebarThreads } from "./SidebarThreadRow";
 
 type ThreadRowProps = ComponentProps<typeof SidebarThreadRow>;
 
@@ -57,16 +57,7 @@ describe("sidebar thread visibility", () => {
     expect(visibleSidebarThreads(rows, "8", "", [], true)).toEqual(rows);
   });
 
-  it("keeps the bot's main thread listed whatever its state: snoozed, an idle burst lane, a thread its opener closed", () => {
-    const listed = (main: object) => visibleSidebarThreads([{ threadId: "open", title: "Open" }, { threadId: "main", title: "Main", ...main }], "open", "", [], false, [], "main").map((task) => task.threadId);
-    expect(listed({ snoozedUntil: Date.now() + 3_600_000 })).toEqual(["open", "main"]);
-    expect(listed({ openedBy: { botId: "maus", name: "Maus", burstId: "burst" } })).toEqual(["open", "main"]);
-    expect(listed({ openedBy: { botId: "atlas", name: "Atlas" }, closedBy: { botId: "atlas", name: "Atlas" } })).toEqual(["open", "main"]);
-    expect(visibleSidebarThreads([{ threadId: "open", title: "Open" }, { threadId: "main", title: "Main", snoozedUntil: Date.now() + 3_600_000 }], "open").map((task) => task.threadId)).toEqual(["open"]);
-  });
-
-  it("keeps the bot's main thread listed when it is older than the six recent rows", () => {
-    expect(visibleSidebarThreads(tasks, "0", "", [], false, [], "9").map((task) => task.threadId)).toEqual(["0", "1", "2", "3", "4", "5", "9"]);
+  it("limits quiet threads to six recent rows", () => {
     expect(visibleSidebarThreads(tasks, "0").map((task) => task.threadId)).toEqual(["0", "1", "2", "3", "4", "5"]);
   });
 
@@ -414,15 +405,6 @@ describe("orderedThreadList", () => {
     ]);
     expect(ordered.map((item) => item.threadId)).toEqual(["reply", "person"]);
     expect(ordered[0]).toMatchObject({ updatedAt: 100 });
-  });
-});
-
-describe("mainThreadFirst", () => {
-  it("leads with the bot's main thread, above a pinned one, and leaves a list without it as it is", () => {
-    const tasks = [{ threadId: "pinned", pinned: true }, { threadId: "new" }, { threadId: "main" }];
-    expect(mainThreadFirst(tasks, "main").map((task) => task.threadId)).toEqual(["main", "pinned", "new"]);
-    expect(mainThreadFirst(tasks, "gone")).toBe(tasks);
-    expect(mainThreadFirst(tasks)).toBe(tasks);
   });
 });
 
@@ -775,13 +757,6 @@ describe("helper threads a bot opened", () => {
     const { own, helpers } = partitionHelperThreads(tasks, "mine");
     expect(own.map((task) => task.threadId)).toEqual(["mine"]);
     expect(helpers.map((task) => task.threadId)).toEqual(["email", "pricing"]);
-  });
-
-  it("never folds the bot's main thread away, whoever opened it", () => {
-    const tasks = [thread("mine"), thread("email", { openedBy: opener }), thread("pricing", { openedBy: opener })];
-    const { own, helpers } = partitionHelperThreads(tasks, "mine", "", [], "email");
-    expect(own.map((task) => task.threadId)).toEqual(["mine", "email"]);
-    expect(helpers.map((task) => task.threadId)).toEqual(["pricing"]);
   });
 
   it("keeps a helper thread in view while it needs the person or is doing something, as the phone lists it", () => {

@@ -1,8 +1,7 @@
-import { browserSidebar } from "@/lib/thread-fold-preferences";
 import { OpenPaneActions } from "./OpenPaneActions";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Archive, BellDot, Check, CheckCheck, ChevronRight, ClipboardCopy, Copy, Crown, FolderMinus, FolderOpen, FolderPlus, Loader2, MessagesSquare, MoreHorizontal, Pause, Pencil, Pin, PinOff, Play, SquarePen, Star, Trash2, Upload, Users } from "lucide-react";
+import { Archive, BellDot, Check, CheckCheck, ChevronRight, ClipboardCopy, Copy, Crown, FolderMinus, FolderOpen, FolderPlus, Loader2, MessagesSquare, MoreHorizontal, Pause, Pencil, Pin, PinOff, Play, SquarePen, Trash2, Upload, Users } from "lucide-react";
 import { isBotHeld, isEveryBotPaused, isPausedHere, setEveryBotPaused, setPaused } from "@/lib/bot-pause";
 import { api, useStore, openBot, type Bot } from "@/state/store";
 import { cn } from "@/lib/cn";
@@ -29,7 +28,6 @@ import type { MenuState } from "./Sidebar";
 import { departmentNames, moveBotsToSection, useMayMoveBots } from "./bot-sections";
 import { openBotSettings } from "./bot-panel/panel-link";
 import { ShortcutHint } from "./ShortcutHint";
-import { isArchived } from "./SidebarThreadRow";
 import { usePublishChoices } from "./publish-template";
 
 type Flyout = "more" | "move" | "publish";
@@ -352,19 +350,12 @@ export function BotContextMenu({
       ...moveToCloud.items(bot, item),
       ...deleteAll,
     ];
-    // Simple view hides the thread list: start one, see them all (the panel's Conversations), and choose the one it opens.
     const newThread = bot.yourAccess === "view" ? null : item(<SquarePen size={16} className="text-ink-secondary" />, t("task.newShort"), () => dispatch({ type: "newTask", botId: bot.id }), { trailing: newThreadHint });
     const viewThreads = item(<MessagesSquare size={16} className="text-ink-secondary" />, t("sidebar.bot.simple.viewThreads"), () => {
       openForSettings();
       openBotSettings(dispatch, "history", { botId: bot.id, anchor: "conversations" });
     });
-    const openTask = state.selectedId === bot.id ? bot.tasks?.find((task) => task.threadId === bot.threadId) : undefined;
-    const setMain = browserSidebar() || remoteClient || admin !== true || !openTask || openTask.routineRunId || openTask.private || isArchived(openTask) ? null : item(
-      <Star size={16} className="text-ink-secondary" />, t("sidebar.bot.simple.setMainThread"),
-      () => dispatch({ type: "updateBot", botId: bot.id, patch: { mainThreadChoice: bot.threadId } }),
-      bot.mainThreadId === bot.threadId ? { disabled: true, hint: t("sidebar.bot.simple.isMainThread") } : undefined,
-    );
-    const threads = [divider("threads"), newThread, viewThreads, <OpenPaneActions key="split" menu ownerId={bot.id} threadId={bot.threadId} onClose={onClose} />, setMain];
+    const threads = [divider("threads"), newThread, viewThreads, <OpenPaneActions key="split" menu ownerId={bot.id} threadId={bot.threadId} onClose={onClose} />];
     const moreRow = flyoutButton("more", moreRef, <MoreHorizontal size={16} className="text-ink-secondary" />, t("sidebar.bot.more"));
     const leave = bot.defaultBot ? [<HideDefaultBotItem key="hide" bot={bot} onDone={onClose} className={MENU_ITEM} />, ...(member ? [] : [<DemoteDefaultBotItem key="demote" bot={bot} onDone={onClose} className={MENU_ITEM} />])] : member ? ownDelete() : [
       item(<Archive size={16} className="text-ink-secondary" />, t("sidebar.bot.archive"), () => onArchive(bot), { disabled: archiveBlocked, hint: archiveHint }),

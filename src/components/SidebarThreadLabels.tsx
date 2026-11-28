@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import { nextRename } from "@/lib/rename";
 import { localizedTaskTitle } from "@/lib/task-title";
-import { browserSidebar, setThreadsUnfolded, useThreadsUnfolded } from "@/lib/thread-fold-preferences";
+import { setThreadsUnfolded, useThreadsUnfolded } from "@/lib/thread-fold-preferences";
 import type { Action, AppState, Bot } from "@/state/store";
 import { botOpensTo } from "@/state/thread-navigation";
 import { canUnfold, openThreadPinned, threadLabels, type LabelRow } from "./sidebar-thread-labels";
@@ -15,7 +15,6 @@ import { isWorking } from "./SidebarThreadRow";
 import { showAllConversations } from "./bot-panel/Conversations";
 import { reducedMotion } from "./MenuMotion";
 import { UndoToast, useUndoToast } from "./UndoToast";
-import { MainThreadMark } from "./SidebarRowMarkers";
 
 const SLOT = "pointer-events-none absolute end-[30px] top-1.5 flex size-6 items-center justify-center rounded-lg text-ink-secondary opacity-0 transition-opacity hover:bg-raised hover:text-ink group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 max-md:hidden touch:pointer-events-auto touch:opacity-70 motion-reduce:transition-none";
 const ROW = "group/label relative flex h-8 w-full min-w-0 items-center gap-2 rounded-lg ps-2.5 pe-2 text-start text-[13px] leading-[18px] outline-none transition-colors duration-[120ms] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none";
@@ -192,7 +191,6 @@ export function SidebarThreadLabels({ bot, selected, drafting = false, rowThread
                 <span dir="auto" className="min-w-0 truncate">{title}</span>
                 {row.pinned && <Pin size={10} role="img" aria-label={t("task.pinned")} className="shrink-0 text-ink-tertiary" />}
               </span>
-              {!browserSidebar() && row.task.threadId === bot.mainThreadId && <MainThreadMark />}
               <span className={cn("flex shrink-0 items-center", hideable(row) && "transition-opacity duration-[120ms] group-hover/label:opacity-0 motion-reduce:transition-none")}>
                 <StatusMark row={row} />
               </span>

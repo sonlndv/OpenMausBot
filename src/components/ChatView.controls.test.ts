@@ -210,7 +210,7 @@ describe("the Simple header", () => {
     const advanced = renderToStaticMarkup(createElement(ChatView, { bot: busyElsewhere }));
     expect(advanced).not.toContain("data-chathead-elsewhere");
     expect(advanced).toContain("data-background-activity");
-    expect(advanced).toContain("data-chathead-back");
+    expect(advanced).not.toContain("data-chathead-back");
     expect(advanced).toContain("data-chathead-role");
     fixture.showThreads = true;
   });
@@ -795,9 +795,7 @@ describe("a guest's composer on a Cloud home", () => {
   });
 });
 
-const { awayFromMainThread, openBot } = await import("@/state/store");
-
-describe("the way back to the bot's own conversation", () => {
+describe("the header of a side thread", () => {
   const visiting: Bot = {
     ...bot, threadId: "side", mainThreadId: "main",
     tasks: [
@@ -805,23 +803,16 @@ describe("the way back to the bot's own conversation", () => {
       { threadId: "side", title: "Routine report", createdAt: 2, busy: false, activity: "idle" },
     ],
   };
-  const header = (shown: boolean, of: Bot) => {
-    fixture.showThreads = shown;
-    try { return renderToStaticMarkup(createElement(ChatView, { bot: of })); } finally { fixture.showThreads = true; }
-  };
-
-  it("offers it with threads hidden while a side thread is open, and opens the main thread", () => {
-    expect(header(false, visiting)).toContain("data-chathead-back");
-    expect(header(false, visiting)).toContain("Back to your chat");
-    expect(awayFromMainThread(visiting, false)).toBe(true);
-    fixture.dispatch.mockReset();
-    openBot(fixture.dispatch, visiting, false);
-    expect(fixture.dispatch.mock.calls.map(([action]) => action)).toContainEqual(expect.objectContaining({ threadId: "main" }));
-  });
-
-  it("never with threads shown, nor in the main thread itself", () => {
-    expect(header(true, visiting)).not.toContain("data-chathead-back");
-    expect(header(false, { ...visiting, threadId: "main" })).not.toContain("data-chathead-back");
-    expect(header(false, { ...visiting, mainThreadId: "unknown" })).not.toContain("data-chathead-back");
+  it("does not single out the main thread when the desktop sidebar hides threads", () => {
+    fixture.showThreads = false;
+    window.ogb = { platform: "linux" } as NonNullable<Window["ogb"]>;
+    try {
+      const markup = renderToStaticMarkup(createElement(ChatView, { bot: visiting }));
+      expect(markup).not.toContain("data-chathead-back");
+      expect(markup).not.toContain("Back to your chat");
+    } finally {
+      delete window.ogb;
+      fixture.showThreads = true;
+    }
   });
 });

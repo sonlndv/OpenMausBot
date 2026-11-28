@@ -1611,7 +1611,6 @@
   "chat.emptyPrompt": "Sohbeti başlatmak için bir mesaj gönderin.",
   "chat.chiefOfStaff": "Kurmay Başkanı",
   "chat.openProfile": "Ajan profilini aç",
-  "chat.backToMainThread": "Sohbetinize dönün",
   "chat.openProfileAria": "{name} profilini aç",
   "chat.showConversations": "{name} ile sohbetleri göster",
   "chat.find": "Sohbette bul",

@@ -2062,7 +2062,6 @@
   "chat.emptyPrompt": "Wyślij wiadomość, aby rozpocząć rozmowę.",
   "chat.chiefOfStaff": "Szef sztabu",
   "chat.openProfile": "Otwórz profil agenta",
-  "chat.backToMainThread": "Wróć do swojego czatu",
   "chat.openProfileAria": "Otwórz profil: {name}",
   "chat.find": "Szukaj w rozmowie",
   "chat.findShortcut": "Szukaj w rozmowie (⌘F)",

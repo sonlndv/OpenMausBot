@@ -50,8 +50,8 @@ memory/
     └── <conversation id>.md   the notes of one conversation, loaded only there
 ```
 
-- **Which conversations have them.** Every 1:1 conversation of a bot except its main one: the conversation set with
-  **Set as main thread** while it is open, else the bot's oldest. A bot with one conversation, its main conversation,
+- **Which conversations have them.** Every 1:1 conversation of a bot except its main one: the saved main destination,
+  otherwise the bot's oldest open conversation. A bot with one conversation, its main conversation,
   routine runs (each starts a fresh conversation, so notes there would never be read again), rooms and every
   conversation on a Team Cloud keep saving to `MEMORY.md` exactly as before.
 - **The bot picks the scope, never the person.** In such a conversation `memory_update` saves to its notes by default:

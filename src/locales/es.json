@@ -1905,7 +1905,6 @@
   "chat.emptyPrompt": "Envía un mensaje para empezar la conversación.",
   "chat.chiefOfStaff": "Jefe de gabinete",
   "chat.openProfile": "Abrir el perfil del agente",
-  "chat.backToMainThread": "Volver a tu chat",
   "chat.openProfileAria": "Abrir el perfil de {name}",
   "chat.showConversations": "Ver las conversaciones con {name}",
   "chat.find": "Buscar en la conversación",

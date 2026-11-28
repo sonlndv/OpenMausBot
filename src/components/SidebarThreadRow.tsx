@@ -3,7 +3,7 @@ import { WorkspaceChatContext, FocusedWorkspaceThread } from "@/state/workspace-
 import { useSelectThreadPane, OpenPaneActions } from "./OpenPaneActions";
 import { memo, useContext, useEffect, useRef, useState, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
-import { Archive, ArchiveRestore, BellOff, Brain, Check, ChevronRight, CircleCheck, CircleDashed, Clock, Clock3, FolderInput, Link2, Link2Off, Loader2, MoreHorizontal, Pencil, Pin, PinOff, RefreshCw, Star, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, BellOff, Brain, Check, ChevronRight, CircleCheck, CircleDashed, Clock, Clock3, FolderInput, Link2, Link2Off, Loader2, MoreHorizontal, Pencil, Pin, PinOff, RefreshCw, Trash2 } from "lucide-react";
 import type { Action, AppState, BotProject, Task } from "@/state/store";
 import { api } from "@/state/store";
 import type { RoutineRun } from "@/lib/routines";
@@ -13,7 +13,6 @@ import { useHeldMenuMotion } from "./MenuMotion";
 import { intlLocale, t } from "@/lib/i18n";
 import { nextRename } from "@/lib/rename";
 import { imeComposing } from "@/lib/send-key";
-import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 import { isTickable, opensRowMenuFromKey } from "@/lib/bulk-select";
 import { threadRefUrl, threadWebRefUrl } from "@/lib/thread-refs";
 import { copyText } from "@/lib/copy-text";
@@ -22,8 +21,7 @@ import { threadLinkLabel } from "../../shared/thread-link";
 import { isSnoozed, orderedThreadList } from "../../shared/wire";
 import { Select } from "./Select";
 import { WorkingTimer } from "./WorkingIndicator";
-import { browserSidebar } from "@/lib/thread-fold-preferences";
-import { MainThreadMark, rowSelectedSurface } from "./SidebarRowMarkers";
+import { rowSelectedSurface } from "./SidebarRowMarkers";
 import { useHeldText } from "./SidebarWorkingStep";
 import { localizedTaskTitle } from "@/lib/task-title";
 import { useAdvancedMode } from "@/lib/interface-mode";
@@ -106,13 +104,13 @@ const isWaitingOnTeammate = (task: Pick<Task, "waitingForTeammates">): boolean =
 const demandsAttention = (task: ThreadRowTask, activeId: string) =>
   task.threadId === activeId || task.activity === "waiting-on-you" || isWorking(task) || isWaitingOnTeammate(task) || Boolean(task.queued) || Boolean(task.unread);
 
-export function partitionHelperThreads<T extends ThreadRowTask>(tasks: T[], activeId: string, query = "", folders: BotProject[] = [], mainId?: string): { own: T[]; helpers: T[] } {
+export function partitionHelperThreads<T extends ThreadRowTask>(tasks: T[], activeId: string, query = "", folders: BotProject[] = []): { own: T[]; helpers: T[] } {
   if (query.trim()) return { own: tasks, helpers: [] };
   const own: T[] = [];
   const helpers: T[] = [];
   for (const task of tasks) {
     const filed = folders.some((folder) => folder.id === task.projectId);
-    const helper = Boolean(task.openedBy) && task.threadId !== mainId && task.pinned !== true && !filed && !demandsAttention(task, activeId) &&
+    const helper = Boolean(task.openedBy) && task.pinned !== true && !filed && !demandsAttention(task, activeId) &&
       !task.closedBy && !isArchived(task) && !isSnoozed(task);
     (helper ? helpers : own).push(task);
   }
@@ -134,14 +132,8 @@ export function HelperThreadGroup<T>({ tasks, renderThread }: { tasks: T[]; rend
   </div>;
 }
 
-/** A bot's main thread leads every list of its threads, above pinned ones and whatever was written in last. */
-export function mainThreadFirst<T extends { threadId: string }>(tasks: T[], mainId?: string): T[] {
-  const main = tasks.find((task) => task.threadId === mainId);
-  return main ? [main, ...tasks.filter((task) => task !== main)] : tasks;
-}
-
 /** Default list shows each routine's newest run only; older runs stay under "Show all". */
-export function visibleSidebarThreads<T extends ThreadRowTask>(tasks: T[], activeId: string, query = "", folders: BotProject[] = [], showAll = false, routineRuns: readonly Pick<RoutineRun, "routineId" | "threadId" | "createdAt">[] = [], mainId?: string): T[] {
+export function visibleSidebarThreads<T extends ThreadRowTask>(tasks: T[], activeId: string, query = "", folders: BotProject[] = [], showAll = false, routineRuns: readonly Pick<RoutineRun, "routineId" | "threadId" | "createdAt">[] = []): T[] {
   const needle = query.trim().toLowerCase();
   if (needle) {
     return tasks.filter((task) => task.title.toLowerCase().includes(needle) || folders.some((folder) => folder.id === task.projectId && folder.name.toLowerCase().includes(needle)));
@@ -159,7 +151,7 @@ export function visibleSidebarThreads<T extends ThreadRowTask>(tasks: T[], activ
     if (!seen || run.createdAt > seen.createdAt) newestRun.set(run.routineId, run);
   }
   return orderedThreadList(tasks).filter((task) => {
-    if (task.pinned === true || task.threadId === mainId) return true;
+    if (task.pinned === true) return true;
     if (task.openedBy?.burstId) return task.threadId === activeId || demandsAttention(task, activeId);
     if (isArchived(task)) return task.threadId === activeId;
     const run = runOf.get(task.threadId);
@@ -260,7 +252,6 @@ export function threadRowActions(botId: string, dispatch: Dispatch<Action>) {
     onMove: (task: { threadId: string }, projectId: string | null) => dispatch({ type: "updateTask", botId, threadId: task.threadId, patch: { projectId } }),
     onArchive: (task: { threadId: string }, archivedAt: number | null) => dispatch({ type: "updateTask", botId, threadId: task.threadId, patch: { archivedAt } }),
     onPin: (task: { threadId: string }, pinned: boolean) => dispatch({ type: "updateTask", botId, threadId: task.threadId, patch: { pinned } }),
-    onSetMain: (task: { threadId: string }) => dispatch({ type: "updateBot", botId, patch: { mainThreadChoice: task.threadId } }),
     onSnooze: (task: { threadId: string }, snoozedUntil: number | null) => dispatch({ type: "updateTask", botId, threadId: task.threadId, patch: { snoozedUntil } }),
     onLink: (task: { threadId: string }, link: string | null) => dispatch({ type: "updateTask", botId, threadId: task.threadId, patch: { link } }),
     onMemory: () => openBotSettings(dispatch, "memory", { botId }),
@@ -282,7 +273,6 @@ type ThreadRowProps = {
   onMove?: (task: ThreadRowTask, folderId: string | null) => void;
   onArchive?: (task: ThreadRowTask, archivedAt: number | null) => void;
   onPin?: (task: ThreadRowTask, pinned: boolean) => void;
-  onSetMain?: (task: ThreadRowTask) => void;
   onSnooze?: (task: ThreadRowTask, snoozedUntil: number | null) => void;
   onLink?: (task: ThreadRowTask, link: string | null) => void;
   onRefreshPermissions?: (task: ThreadRowTask) => void;
@@ -297,8 +287,6 @@ type ThreadRowProps = {
    * has worked. */
   panel?: boolean;
   preview?: string;
-  /** The bot's main thread ("Set as main thread"). */
-  main?: boolean;
 };
 
 const sameFields = <T extends object>(a: T, b: T): boolean => {
@@ -309,12 +297,7 @@ const sameFields = <T extends object>(a: T, b: T): boolean => {
 const sameThreadRow = ({ task: previousTask, ...previous }: ThreadRowProps, { task, ...next }: ThreadRowProps): boolean =>
   sameFields(previousTask, task) && sameFields(previous, next);
 
-function SetMainThreadItem({ main, onPick }: { main: boolean; onPick: () => void }) {
-  if (useOwnerOrAdmin() !== true || window.ogb?.remoteClient?.active === true) return null;
-  return <button type="button" disabled={main} title={main ? t("sidebar.bot.simple.isMainThread") : undefined} onClick={onPick} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[14px] leading-[18px] text-ink hover:bg-menu-hover disabled:opacity-40"><Star size={16} />{t("sidebar.bot.simple.setMainThread")}</button>;
-}
-
-export const SidebarThreadRow = memo(function SidebarThreadRow({ task, ownerId, current: selected, folders, onSelect, onRename, onRegenerateTitle, onDelete, onMove, onArchive, onPin, onSetMain, onSnooze, onLink, onRefreshPermissions, onSetClosed, onMemory, activityLabel: liveActivity, now, selectMode = false, checked = false, onToggleSelect, panel = false, preview, main = false }: ThreadRowProps) {
+export const SidebarThreadRow = memo(function SidebarThreadRow({ task, ownerId, current: selected, folders, onSelect, onRename, onRegenerateTitle, onDelete, onMove, onArchive, onPin, onSnooze, onLink, onRefreshPermissions, onSetClosed, onMemory, activityLabel: liveActivity, now, selectMode = false, checked = false, onToggleSelect, panel = false, preview }: ThreadRowProps) {
   const selectPane = useSelectThreadPane();
   const canDrag = Boolean(useContext(WorkspaceChatContext));
   const focused = useContext(FocusedWorkspaceThread);
@@ -341,8 +324,8 @@ export const SidebarThreadRow = memo(function SidebarThreadRow({ task, ownerId, 
   const contextMenu = (event: React.MouseEvent) => { event.preventDefault(); if (!selectMode) openMenu(event.clientX, event.clientY); };
   const openMenu = (x: number, y: number) => setMenu(threadMenuAt(x, y));
   const startRename = () => { if (task.sharedChat) return; finishing.current = false; setDraft(task.title); setRenaming(true); setMenu(null); };
-  const menuSheet = useThreadRowMenu({ task, displayTitle, ownerId, folders, main, menu, setMenu, actionRef, onStartRename: startRename, onSelect, onRegenerateTitle, onDelete, onMove,
-    onArchive, onPin, onSetMain, onSnooze, onLink, onRefreshPermissions, onSetClosed, onMemory });
+  const menuSheet = useThreadRowMenu({ task, displayTitle, ownerId, folders, menu, setMenu, actionRef, onStartRename: startRename, onSelect, onRegenerateTitle, onDelete, onMove,
+    onArchive, onPin, onSnooze, onLink, onRefreshPermissions, onSetClosed, onMemory });
   const finishRename = (save: boolean) => {
     if (finishing.current) return;
     finishing.current = true;
@@ -352,7 +335,6 @@ export const SidebarThreadRow = memo(function SidebarThreadRow({ task, ownerId, 
   };
   const heading = <span className={cn("flex min-w-0 flex-1 items-baseline gap-1.5", panel && "pe-6")}>
     <span dir="auto" className={cn("min-w-0 flex-1 max-w-max truncate", task.unread && "font-semibold text-ink", (closed || archived || snoozed) && !current && "text-ink-tertiary")}>{displayTitle}</span>
-    {main && !browserSidebar() && <MainThreadMark className="self-center" />}
     {byline && (
       <span className="min-w-0 max-w-[45%] shrink truncate font-normal text-ink-tertiary">{byline}</span>
     )}
@@ -410,7 +392,7 @@ export const THREAD_MENU_WIDTH = 220;
 export const threadMenuAt = (x: number, y: number): ThreadMenuAt =>
   ({ left: Math.max(8, Math.min(x, window.innerWidth - 228)), top: Math.max(8, Math.min(y, window.innerHeight - 230)) });
 
-type ThreadMenuProps = Pick<ThreadRowProps, "task" | "ownerId" | "folders" | "main" | "onRegenerateTitle" | "onDelete" | "onMove" | "onArchive" | "onPin" | "onSetMain"
+type ThreadMenuProps = Pick<ThreadRowProps, "task" | "ownerId" | "folders" | "onRegenerateTitle" | "onDelete" | "onMove" | "onArchive" | "onPin"
   | "onSnooze" | "onLink" | "onRefreshPermissions" | "onSetClosed" | "onMemory"> & {
   menu: ThreadMenuAt | null;
   setMenu: Dispatch<SetStateAction<ThreadMenuAt | null>>;
@@ -426,7 +408,7 @@ type ThreadMenuProps = Pick<ThreadRowProps, "task" | "ownerId" | "folders" | "ma
 };
 
 /** A thread row's menu and its delete confirmation, for every list that draws a thread with its actions. */
-export function useThreadRowMenu({ task, displayTitle, ownerId, folders, main = false, menu, setMenu, actionRef, onStartRename, onSelect, onRegenerateTitle, onDelete, onMove, onArchive, onPin, onSetMain, onSnooze, onLink, onRefreshPermissions, onSetClosed, onMemory, extra, deletable = true }: ThreadMenuProps): ReactNode {
+export function useThreadRowMenu({ task, displayTitle, ownerId, folders, menu, setMenu, actionRef, onStartRename, onSelect, onRegenerateTitle, onDelete, onMove, onArchive, onPin, onSnooze, onLink, onRefreshPermissions, onSetClosed, onMemory, extra, deletable = true }: ThreadMenuProps): ReactNode {
   const advanced = useAdvancedMode();
   const [webLink, setWebLink] = useState<string | null>(null);
   useEffect(() => {
@@ -494,7 +476,6 @@ export function useThreadRowMenu({ task, displayTitle, ownerId, folders, main = 
         </Select>
       </label>}
       {onPin && <button type="button" onClick={() => { setMenu(null); onPin(task, task.pinned !== true); }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[14px] leading-[18px] text-ink hover:bg-menu-hover">{task.pinned === true ? <PinOff size={16} /> : <Pin size={16} />}{task.pinned === true ? t("sidebar.bot.unpin") : t("sidebar.bot.pin")}</button>}
-      {!browserSidebar() && onSetMain && !task.routineRunId && !task.private && !archived && <SetMainThreadItem main={main} onPick={() => { setMenu(null); onSetMain(task); }} />}
       {advanced && onLink && task.link && <button type="button" onClick={() => { setMenu(null); onLink(task, null); }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[14px] leading-[18px] text-ink hover:bg-menu-hover"><Link2Off size={16} />{t("task.removeLink")}</button>}
       {onSetClosed && <button type="button" data-thread-close={task.closedBy ? "reopen" : "close"} onClick={() => { setMenu(null); onSetClosed(task, !task.closedBy); }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[14px] leading-[18px] text-ink hover:bg-menu-hover">{task.closedBy ? <CircleDashed size={16} /> : <CircleCheck size={16} />}{task.closedBy ? t("task.reopenThread") : t("task.closeThread")}</button>}
       {onArchive && <button type="button" disabled={isWorking(task)} onClick={() => { setMenu(null); onArchive(task, isArchived(task) ? null : Date.now()); }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[14px] leading-[18px] text-ink hover:bg-menu-hover disabled:opacity-40">{archived ? <ArchiveRestore size={16} /> : <Archive size={16} />}{archived ? t("task.unarchive") : t("task.archive")}</button>}

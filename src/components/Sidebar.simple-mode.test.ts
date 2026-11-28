@@ -443,7 +443,7 @@ describe("bot-first sidebar", () => {
     expect(disabled).toContain("Move to department");
   });
 
-  it("gives the Simple bot menu New thread, View threads and Set as main thread", () => {
+  it("gives the Simple bot menu New thread and View threads without Set as main thread", () => {
     let tree: ReactNode;
     function Capture() {
       tree = BotContextMenu({
@@ -477,35 +477,11 @@ describe("bot-first sidebar", () => {
       [{ type: "toggleSettings", open: true, section: "history", botId: bot.id }],
     ]);
 
-    fixture.dispatch.mockClear();
-    const setMain = named("Set as main thread")!;
-    expect(setMain.props.disabled).toBeFalsy();
-    setMain.props.onClick!({} as MouseEvent);
-    expect(fixture.dispatch.mock.calls).toEqual([[{ type: "updateBot", botId: bot.id, patch: { mainThreadChoice: "last-selected" } }]]);
-
-    // Not offered until the person is known to be the owner or an admin.
-    for (const admin of [null, false]) {
-      fixture.admin = admin;
-      renderToStaticMarkup(createElement(Capture));
-      expect(named("Set as main thread")).toBeUndefined();
-    }
-    fixture.admin = true;
-
-    // Already main: offered but off. Another bot's open thread, or a routine run, is never offered.
-    fixture.state = { ...fixture.state, bots: [{ ...bot, mainThreadId: "last-selected" }] };
-    renderToStaticMarkup(createElement(Capture));
-    expect(named("Set as main thread")!.props.disabled).toBe(true);
+    expect(named("Set as main thread")).toBeUndefined();
     fixture.state = { ...fixture.state, selectedId: "other-bot" };
     renderToStaticMarkup(createElement(Capture));
     expect(named("Set as main thread")).toBeUndefined();
     expect(named("New thread")).toBeDefined();
-    fixture.state = { ...fixture.state, selectedId: bot.id, bots: [{ ...bot, threadId: "run", tasks: [...bot.tasks!, { threadId: "run", title: "Run", createdAt: 9, routineRunId: "r" }] }] };
-    renderToStaticMarkup(createElement(Capture));
-    expect(named("Set as main thread")).toBeUndefined();
-    // A Team Cloud private thread can't be the main thread either (the host refuses it).
-    fixture.state = { ...fixture.state, selectedId: bot.id, bots: [{ ...bot, threadId: "mine", tasks: [...bot.tasks!, { threadId: "mine", title: "Mine", createdAt: 9, private: true }] }] };
-    renderToStaticMarkup(createElement(Capture));
-    expect(named("Set as main thread")).toBeUndefined();
     // A view-only teammate can look at the threads but not start one.
     fixture.state = { ...fixture.state, bots: [{ ...bot, yourAccess: "view" }] };
     renderToStaticMarkup(createElement(Capture));

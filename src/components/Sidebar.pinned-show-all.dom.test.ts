@@ -29,12 +29,12 @@ const bot: Bot = {
 
 let host: HTMLElement;
 let root: Root;
-const mount = async () => {
+const mount = async (owner = bot) => {
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
   await act(async () => {
-    root.render(createElement(BotThreadList, { ...botRowProps(initialState, vi.fn(), bot, { density: "comfortable", query: "", onMenu: vi.fn() }), selected: true }));
+    root.render(createElement(BotThreadList, { ...botRowProps(initialState, vi.fn(), owner, { density: "comfortable", query: "", onMenu: vi.fn() }), selected: true }));
   });
 };
 const unmount = async () => {
@@ -91,54 +91,35 @@ describe("a bot's Show all threads", () => {
 });
 
 describe("a bot's main thread", () => {
-  const marked = () => [...host.querySelectorAll("[data-main-thread-mark]")].map((mark) => mark.closest("[data-sidebar-thread-row]")?.getAttribute("data-sidebar-thread-row"));
+  const rows = () => [...host.querySelectorAll("[data-sidebar-thread-row]")].map((row) => row.getAttribute("data-sidebar-thread-row"));
 
-  it("stays in the web sidebar without a Main badge when older than the short list", async () => {
-    bot.mainThreadId = "loose-0";
-    await mount();
-    expect(host.textContent).toContain("Loose chat 0");
-    expect(marked()).toEqual([]);
-    expect(host.textContent).not.toContain("Loose chat 1");
-    await unmount();
-    delete bot.mainThreadId;
-    await mount();
-    expect(marked()).toEqual([]);
+  it("uses the same recent limit and show-all order for a designated thread", async () => {
+    await mount({ ...bot, mainThreadId: "loose-0" });
+    expect(rows()).not.toContain("loose-0");
+    await click("Show all 11 threads");
+    expect(rows()).toEqual(["filed-pinned", "filed-plain", ...loose.map((task) => task.threadId).reverse()]);
+    expect(host.querySelector("[data-main-thread-mark]")).toBeNull();
     await unmount();
   });
 
-  it("leads the list, above folders and pinned threads, folded or showing all, and is listed once", async () => {
-    const rows = () => [...host.querySelectorAll("[data-sidebar-thread-row]")].map((row) => row.getAttribute("data-sidebar-thread-row"));
-    bot.mainThreadId = "loose-0";
-    await mount();
-    expect(rows().slice(0, 3)).toEqual(["loose-0", "filed-pinned", "filed-plain"]);
-    await click("Show all 11 threads");
-    expect(rows()[0]).toBe("loose-0");
-    expect(rows().filter((id) => id === "loose-0")).toHaveLength(1);
-    expect(rows()).toHaveLength(11);
-    await unmount();
-    forgetSidebarShowAllForTests();
-    localStorage.clear();
-    bot.mainThreadId = "filed-plain";
-    await mount();
-    expect(rows().slice(0, 2)).toEqual(["filed-plain", "filed-pinned"]);
+  it("leaves the thread in its folder below pinned threads", async () => {
+    await mount({ ...bot, mainThreadId: "filed-plain" });
+    expect(rows().slice(0, 2)).toEqual(["filed-pinned", "filed-plain"]);
     expect(rows().filter((id) => id === "filed-plain")).toHaveLength(1);
     await click("Collapse Taxes threads");
-    expect(rows().slice(0, 2)).toEqual(["filed-plain", "filed-pinned"]);
+    expect(rows()).not.toContain("filed-plain");
+    expect(rows()[0]).toBe("filed-pinned");
     await unmount();
-    delete bot.mainThreadId;
   });
 
-  it("leaves its folder where the folder's other threads put it", async () => {
+  it("ranks folders using their pinned threads even when one is designated main", async () => {
     const folders = () => [...host.querySelectorAll("[data-sidebar-folder-row]")].map((row) => row.getAttribute("data-sidebar-folder-row"));
-    const before = { projects: bot.projects, tasks: bot.tasks };
-    bot.projects = [...bot.projects!, { id: "later", name: "Later" }];
-    bot.tasks = [...bot.tasks!, { threadId: "later-pinned", title: "Later pinned", createdAt: 2_000, projectId: "later", pinned: true }];
-    bot.mainThreadId = "later-pinned";
-    await mount();
-    expect(folders()).toEqual(["folder", "later"]);
+    await mount({ ...bot, mainThreadId: "later-pinned",
+      projects: [...bot.projects!, { id: "later", name: "Later" }],
+      tasks: [...bot.tasks!, { threadId: "later-pinned", title: "Later pinned", createdAt: 2_000, projectId: "later", pinned: true }],
+    });
+    expect(folders()).toEqual(["later", "folder"]);
     await unmount();
-    Object.assign(bot, before);
-    delete bot.mainThreadId;
   });
 
   it("hides the badge on a collapsed web bot too", () => {

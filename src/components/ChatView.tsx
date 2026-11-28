@@ -1,4 +1,3 @@
-import { browserSidebar } from "@/lib/thread-fold-preferences";
 import { chatHeaderContainer } from "./chat-header-layout";
 import { memo, use, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useAdvancedMode } from "@/lib/interface-mode";
@@ -28,8 +27,6 @@ import {
   type Bot,
   type InstanceInfo,
   type Message,
-  awayFromMainThread,
-  openBot,
 } from "@/state/store";
 import { EngineSetup } from "./EngineSetup";
 import { CHATGPT_USAGE_URL, ManageUsageLink } from "./ChatGptPlanStatus";
@@ -974,16 +971,6 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
           )}
           {!paneTitle && !phone && !simpleHead && <ChatHeadRole bot={bot} />}<span role="status" className="sr-only" data-chathead-status>{bot.busy ? t("sidebar.preview.working") : ""}</span>{!paneTitle && !simpleHead && privateChat && <TeamPrivateHeader />}{!paneTitle && !simpleHead && ownHelper && <TeamOwnHelperHeader />}{!paneTitle && !simpleHead && sharedChat && team && <TeamSharedHeader team={team} onlyPeopleAdded={bot.onlyPeopleAdded} sharedWith={currentTask?.sharedWith?.name} />}
           {!paneTitle && !simpleHead && !bot.busy && bot.waitingForTeammates && <span className="truncate text-[12px] text-ink-secondary" role="status">{t("chat.teammatesWorking")}</span>}
-          {!paneTitle && !browserSidebar() && (advanced || remoteClient) && awayFromMainThread(profile, showThreads) && (
-            <button
-              type="button"
-              data-chathead-back
-              onClick={() => openBot(dispatch, profile, false)}
-              className="shrink-0 whitespace-nowrap rounded-full bg-raised px-2.5 py-0.5 text-[12px] font-medium text-ink-secondary hover:bg-raised-hover hover:text-ink"
-            >
-              {t("chat.backToMainThread")}
-            </button>
-          )}
         </div>
         <div data-chathead-controls className={cn("flex shrink-0 items-center gap-2 @max-[48rem]/chatbar:contents", !compactHeader && "@min-[30rem]/chathead:col-start-3 @min-[30rem]/chathead:justify-self-end")}>
           <div data-chathead-live className="order-last col-span-full flex min-w-0 basis-full flex-wrap items-center justify-end gap-1 empty:hidden @min-[48rem]/chatbar:contents">

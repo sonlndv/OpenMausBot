@@ -2217,7 +2217,6 @@
   "chat.emptyPrompt": "메시지를 보내 대화를 시작하세요.",
   "chat.chiefOfStaff": "비서실장",
   "chat.openProfile": "에이전트 프로필 열기",
-  "chat.backToMainThread": "내 채팅으로 돌아가기",
   "chat.openProfileAria": "{name}의 프로필 열기",
   "chat.showConversations": "{name}의 대화 보기",
   "chat.find": "대화에서 찾기",

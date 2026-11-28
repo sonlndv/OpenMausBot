@@ -60,7 +60,7 @@ export function LibraryTab({ bot }: { bot: Bot }) {
         <Card label={t("botPanel.library.pages")} anchor="pages">
           {shown("pages", pages).map((page) => (
             <NavRow key={page.url} data-panel-row="page" icon={Globe} title={<span className="block truncate">{page.title}</span>}
-              hint={<span className="block truncate">{threadLabel(bot, page.threadId, showThreads) ?? page.url}</span>} onClick={() => openPage(page.url)} />
+              hint={<span className="block truncate">{threadLabel(bot, page.threadId) ?? page.url}</span>} onClick={() => openPage(page.url)} />
           ))}
         </Card>
       )}
@@ -68,7 +68,7 @@ export function LibraryTab({ bot }: { bot: Bot }) {
       {apps.length > 0 && (
         <Card label={t("botPanel.library.apps")} anchor="apps">
           {shown("apps", apps).map((app) => {
-            const label = threadLabel(bot, app.threadId, showThreads);
+            const label = threadLabel(bot, app.threadId);
             return <NavRow key={`${app.threadId}:${app.messageId}`} data-panel-row="app" icon={AppWindow} title={<span className="block truncate">{app.title}</span>}
               hint={label && <span className="block truncate">{label}</span>} onClick={() => showInChat(app.threadId, app.messageId)} />;
           })}
@@ -81,7 +81,7 @@ export function LibraryTab({ bot }: { bot: Bot }) {
           <ul className="flex flex-col gap-1.5">
             {shown("files", shared).map((item) => (
               <li key={`${item.threadId}:${item.messageId}:${item.file.path}`} className="min-w-0">
-                <AttachedFileChip file={item.file} message={{ threadId: item.threadId, messageId: item.messageId }} linked={item.file.linked} note={threadLabel(bot, item.threadId, showThreads)} className="w-full max-w-none" />
+                <AttachedFileChip file={item.file} message={{ threadId: item.threadId, messageId: item.messageId }} linked={item.file.linked} note={threadLabel(bot, item.threadId)} className="w-full max-w-none" />
               </li>
             ))}
             {(open.has("files") ? unshared : unshared.slice(0, Math.max(0, LIBRARY_SHOWN - shared.length))).map((path) => (

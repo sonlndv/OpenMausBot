@@ -32,23 +32,23 @@ describe("a bot's threads under its sidebar row", () => {
     expect(open.more).toBe(3);
   });
 
-  it("unfolded, lists the main thread first, however old it is, in place of the oldest active one", () => {
+  it("unfolded, does not reserve a place for an old main thread", () => {
     const tasks = [thread("main", 30), thread("a", 1), thread("b", 2), thread("c", 3), thread("d", 4), thread("e", 5)];
     const labels = threadLabels({ ...bot(tasks, "e"), mainThreadId: "main" }, {}, { unfolded: true, current: "e", rowThreadId: "e", now: NOW });
-    expect(ids(labels)).toEqual(["main", "a", "b", "e"]);
+    expect(ids(labels)).toEqual(["a", "b", "c", "e"]);
     expect(labels.more).toBe(2);
   });
 
-  it("unfolded, lists the main thread first whoever opened it and whatever its state", () => {
+  it("does not unfold helper, archived or snoozed threads because they are main", () => {
     const listed = (main: Partial<Task>) => {
-      const labels = threadLabels({ ...bot([thread("a", 1), thread("b", 2), thread("main", 30, main)], "a"), mainThreadId: "main" }, {}, { unfolded: true, current: "a", rowThreadId: "a", now: NOW });
-      return labels.rows.map((row) => [row.task.threadId, row.main]);
+      const owner = { ...bot([thread("a", 1), thread("main", 2, main)], "a"), mainThreadId: "main" };
+      expect(canUnfold(owner)).toBe(false);
+      return ids(threadLabels(owner, {}, { unfolded: true, current: "a", rowThreadId: "a", now: NOW }));
     };
-    const first = [["main", true], ["a", false], ["b", false]];
-    expect(listed({ openedBy: { botId: "atlas", name: "Atlas", at: 1 } })).toEqual(first);
-    expect(listed({ openedBy: { botId: "maus", name: "Maus", at: 1, burstId: "burst" } })).toEqual(first);
-    expect(listed({ snoozedUntil: NOW + DAY })).toEqual(first);
-    expect(canUnfold({ ...bot([thread("a", 1), thread("main", 30, { openedBy: { botId: "atlas", name: "Atlas", at: 1 } })]), mainThreadId: "main" })).toBe(true);
+    expect(listed({ openedBy: { botId: "atlas", name: "Atlas", at: 1 } })).toEqual(["a"]);
+    expect(listed({ openedBy: { botId: "maus", name: "Maus", at: 1, burstId: "burst" } })).toEqual(["a"]);
+    expect(listed({ snoozedUntil: Date.now() + DAY })).toEqual(["a"]);
+    expect(listed({ archivedAt: 1 })).toEqual(["a"]);
   });
 
   it("leaves a week-old thread nobody touched in the count, not the list", () => {

@@ -208,7 +208,7 @@ The [432-row fork-main inventory](responsive-workspace-actions.md) is historical
 | Open the command palette | Both modes on laptop, iPad and phone: ran the theme command from the account menu. [Actions][actions] |
 | Install phone web app | **Unverified on hardware.** A Chromium manifest or inset check is not Safari Share → Add to Home Screen → launch. [Device checklist](#phone-web-app-installation) |
 | Restore archived bot | Simple phone: restored an archived fixture bot and read back its state. [Actions][actions] |
-| Set a bot’s main thread | **Unavailable by design on web**, not a missing Electron bridge. Ordinary web thread selection is not setting the bot's main destination. [Inventory](responsive-workspace-actions.md#thr) |
+| Set a bot’s main thread | **Not a conversation menu action on any client.** Selecting a conversation does not change the bot's routing destination. [Inventory](responsive-workspace-actions.md#thr) |
 | Fork latest text turn | Both modes, all three layouts: `/fork` created a new thread at the latest completed text; no literal command was sent. [Actions][actions] |
 | Fork at a particular message | Both modes, all three layouts: selected bot and room message IDs matched the stored fork origins. [Actions][actions] |
 | Follow fork from its origin | Both modes, all three layouts: opened the named fork from its chip, then returned to the original draft. [Actions][actions] |
