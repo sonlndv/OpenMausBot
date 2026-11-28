@@ -213,11 +213,11 @@ function RoundChatMoreMenu({ bot, phoneHeader }: { bot: Bot; phoneHeader: boolea
           className={cn(
             "flex size-9 items-center justify-center rounded-full",
             advanced ? "bg-raised/50 transition-colors hover:bg-raised" : cn(ELEVATED_CONTROL, ELEVATED_HOVER, open && ELEVATED_OPEN),
-            "max-md:size-9 max-md:border max-md:border-hairline max-md:bg-card",
+            "phone-header-surface max-md:size-10 max-md:border max-md:border-hairline",
             open || on ? "text-accent" : "text-ink",
           )}
         >
-          <MoreHorizontal size={16} />
+          <MoreHorizontal size={16} className="max-md:size-5" />
         </span>
       )}
     />

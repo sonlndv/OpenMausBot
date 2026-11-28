@@ -13,24 +13,9 @@ import { openTabId, type ThreadTab } from "./thread-tabs";
 
 const RESIZE_MS = 240;
 const LIST_FADE = 40;
-const CLEAR_OF_CONTROLS = 24;
-const WIDEST = 720;
 const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 const PART = "flex h-full min-w-0 items-center rounded-full outline-none transition-colors duration-[120ms] hover:bg-ink/[0.06] active:bg-ink/[0.08] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none";
-const CHIP = "flex h-7 max-w-42 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] leading-[18px] outline-none transition-colors duration-[120ms] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none";
-
-/** The widest the open pill may be while staying centred in the header and clear of the controls on either side. */
-function centredRoom(pill: HTMLElement): number {
-  const row = pill.closest("[data-chathead-row]");
-  const centre = row ? row.getBoundingClientRect().left + row.getBoundingClientRect().width / 2 : 0;
-  let half = row ? row.getBoundingClientRect().width / 2 : WIDEST / 2;
-  for (const side of row?.querySelectorAll<HTMLElement>("[data-chathead-controls]") ?? []) {
-    const box = side.getBoundingClientRect();
-    if (box.width === 0) continue;
-    half = Math.min(half, box.left >= centre ? box.left - centre : centre - box.right);
-  }
-  return Math.max(0, Math.min(WIDEST, 2 * (half - CLEAR_OF_CONTROLS)));
-}
+const CHIP = "flex h-10 max-w-full shrink-0 items-center gap-1.5 rounded-full px-3 text-base leading-5 outline-none transition-colors duration-[120ms] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none";
 
 export const tabTitle = (tab: ThreadTab): string => (tab.draft ? t("task.newShort") : !tab.title || tab.title === "New thread" ? t("task.untitledChat") : localizedTaskTitle(tab.title));
 
@@ -67,7 +52,6 @@ export function ThreadSwitcherPill({ bot, tabs, head, label, panelOpen, onToggle
 }) {
   const dispatch = useStoreDispatch();
   const [open, setOpen] = useState(false);
-  const [room, setRoom] = useState(WIDEST);
   const box = useGlidingWidth(open);
   const list = useRef<HTMLDivElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
@@ -83,10 +67,8 @@ export function ThreadSwitcherPill({ bot, tabs, head, label, panelOpen, onToggle
   useEffect(() => {
     if (!open) return;
     const away = (event: PointerEvent) => { if (!box.current?.contains(event.target as Node)) setOpen(false); };
-    const resize = () => { if (box.current) setRoom(centredRoom(box.current)); };
     document.addEventListener("pointerdown", away);
-    window.addEventListener("resize", resize);
-    return () => { document.removeEventListener("pointerdown", away); window.removeEventListener("resize", resize); };
+    return () => document.removeEventListener("pointerdown", away);
   }, [open]);
   useLayoutEffect(() => {
     if (!open || !list.current) return;
@@ -120,16 +102,16 @@ export function ThreadSwitcherPill({ bot, tabs, head, label, panelOpen, onToggle
 
   return (
     <div ref={box} data-chathead-switch={open ? "open" : "closed"} onKeyDown={open ? onKey : undefined}
-      className={cn("flex h-[39px] min-w-0 items-center overflow-hidden rounded-full p-[5.5px] text-ink", ELEVATED_FLOAT, !open && "max-w-full")} style={open ? { maxWidth: room } : undefined}>
+      className={cn("phone-header-surface flex min-h-11 min-w-0 max-w-full items-center overflow-hidden rounded-full px-1.5 text-ink", ELEVATED_FLOAT, open && "w-full rounded-2xl py-1")}>
       {open ? (
-        <div key="open" className="flex min-w-0 animate-fade-in items-center gap-1 motion-reduce:animate-none">
+        <div key="open" className="grid w-full min-w-0 animate-fade-in grid-cols-[minmax(0,1fr)_auto] items-center gap-1 motion-reduce:animate-none">
           <button type="button" data-chathead-pill data-tour="bot-pill" onClick={onToggle} title={t("chat.openBotPanel")} aria-label={label}
-            aria-expanded={panelOpen} aria-controls={panelOpen ? BOT_PANEL_ID : undefined} className={cn(PART, "shrink-0")}>
+            aria-expanded={panelOpen} aria-controls={panelOpen ? BOT_PANEL_ID : undefined} className={cn(PART, "col-span-full min-h-10 justify-self-start")}>
             {head}
           </button>
           <div ref={list} role="listbox" aria-label={t("task.namedList", { name: bot.name })} aria-orientation="horizontal"
             onScroll={(event) => setFade(edgeFade(event.currentTarget, LIST_FADE))} style={{ maskImage: fade, WebkitMaskImage: fade }}
-            className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            className={cn("flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", !canWrite && "col-span-full")}>
             {tabs.map((tab) => {
               const selected = tab.threadId === active;
               const title = tabTitle(tab);
@@ -147,23 +129,23 @@ export function ThreadSwitcherPill({ bot, tabs, head, label, panelOpen, onToggle
           {canWrite && (
             <button type="button" data-thread-chip-new aria-label={t("task.newShort")} title={t("task.newShort")}
               onClick={() => { dispatch({ type: "newTask", botId: bot.id }); close(false); }}
-              className={cn(PART, "size-7 shrink-0 justify-center text-ink-secondary hover:text-ink")}>
+              className={cn(PART, "size-10 shrink-0 justify-center text-ink-secondary hover:text-ink")}>
               <Plus size={16} aria-hidden="true" />
             </button>
           )}
         </div>
       ) : (
-        <div key="closed" className="flex min-w-0 items-center">
+        <div key="closed" className="flex min-w-0 items-center max-md:[&>button]:min-h-11">
           <button type="button" data-chathead-pill data-tour="bot-pill" onClick={onToggle} title={t("chat.openBotPanel")} aria-label={label}
-            aria-expanded={panelOpen} aria-controls={panelOpen ? BOT_PANEL_ID : undefined} className={cn(PART, "shrink-0")}>
+            aria-expanded={panelOpen} aria-controls={panelOpen ? BOT_PANEL_ID : undefined} className={cn(PART, "shrink-0 max-md:max-w-[48%]")}>
             {head}
           </button>
           <button ref={toggle} type="button" data-chathead-threads aria-haspopup="listbox" aria-expanded={false}
-            aria-label={t("task.namedList", { name: bot.name })} onClick={() => { if (box.current) setRoom(centredRoom(box.current)); setOpen(true); }}
-            className={cn(PART, "gap-1.5 pe-2.5 ps-1.5 text-[14px] font-medium leading-5 text-ink-secondary hover:text-ink")}>
+            aria-label={t("task.namedList", { name: bot.name })} onClick={() => setOpen(true)}
+            className={cn(PART, "gap-1.5 pe-2.5 ps-1.5 text-[14px] font-medium leading-5 text-ink-secondary hover:text-ink max-md:text-base max-md:leading-5 max-md:text-ink")}>
             <span aria-hidden="true" className="text-ink-tertiary">·</span>
-            <span data-chathead-conversation dir="auto" className="min-w-0 max-w-[180px] truncate">{current ? tabTitle(current) : ""}</span>
-            <ChevronDown size={12} aria-hidden="true" className="shrink-0 text-ink-tertiary" />
+            <span data-chathead-conversation dir="auto" className="min-w-0 max-w-[180px] truncate max-md:line-clamp-2 max-md:whitespace-normal max-md:text-start max-md:break-words">{current ? tabTitle(current) : ""}</span>
+            <ChevronDown size={12} aria-hidden="true" className="shrink-0 text-ink-tertiary max-md:size-4 max-md:text-ink-secondary" />
           </button>
         </div>
       )}

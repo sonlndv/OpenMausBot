@@ -1283,6 +1283,29 @@
 [data-chat-bubble="simple"] .chat-md > * + * {
   margin-top: 10px;
 }
+@media (width < 48rem) {
+  .reply-line {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto 0;
+    row-gap: 0;
+    justify-items: start;
+  }
+  .reply-line > [data-chat-bubble] {
+    grid-column: 1 / -1;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .reply-line:has([data-shown="true"]) {
+    grid-template-rows: auto auto;
+  }
+  .reply-line > span:last-child {
+    opacity: 0;
+  }
+  .reply-line:has([data-shown="true"]) > span:last-child {
+    opacity: 1;
+  }
+}
 /* No lone last word in a bubble or a reply's paragraphs. */
 [data-chat-bubble="simple"],
 .chat-md :is(p, li, blockquote) {
@@ -2112,6 +2135,14 @@ body {
   --top-fade: 60px;
   -webkit-mask-image: linear-gradient(to bottom, transparent calc(var(--glass-top, 0px) - var(--top-fade)), #000 var(--glass-top, 0px));
   mask-image: linear-gradient(to bottom, transparent calc(var(--glass-top, 0px) - var(--top-fade)), #000 var(--glass-top, 0px));
+}
+@media (width < 48rem) {
+  .phone-header-surface {
+    background-color: color-mix(in srgb, var(--color-card), var(--color-ink) 12%);
+  }
+  .glass-scroller[data-top-fade] {
+    --top-fade: 14px;
+  }
 }
 /* A room's feed of threads: its header is plain words, so nothing that scrolls under it shows through. Rows fade in over
    the last --feed-fade above the bar's edge, where the top row rests; a mask, so any skin's ground shows. */

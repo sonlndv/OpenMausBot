@@ -52,7 +52,7 @@ export function ChatHeadPill({ bot, avatar, privacy, onToggle, threadTitle, swit
   const tabs = useMemo(() => (switcher ? threadTabs(bot) : []), [switcher, bot.id, bot.threadId, bot.switchingTo, bot.mainThreadId, bot.tasks, bot.busy]);
   const identity = <>
     <BotAvatar bot={bot} size={28} {...avatar} />
-    <span dir="auto" className="min-w-0 truncate text-[14px] font-medium leading-5">{bot.name}</span>
+    <span dir="auto" className="min-w-0 truncate text-[14px] font-medium leading-5 max-md:text-base max-md:font-semibold">{bot.name}</span>
     {privacyLabel && (
       <span data-chathead-privacy={privacy?.kind} title={privacyLabel} className="flex shrink-0 text-ink-tertiary">
         <PrivacyIcon size={13} aria-hidden="true" />
@@ -67,7 +67,7 @@ export function ChatHeadPill({ bot, avatar, privacy, onToggle, threadTitle, swit
     return <ThreadSwitcherPill bot={bot} tabs={tabs} head={<span className="flex min-w-0 items-center gap-2 pe-1">{identity}</span>} label={label} panelOpen={open} onToggle={() => onToggle(!open)} />;
   }
   return (
-    <div data-chathead-pill className={cn("flex min-w-0 max-w-full items-center rounded-full text-ink", ELEVATED_FLOAT)}>
+    <div data-chathead-pill className={cn("phone-header-surface flex min-w-0 max-w-full items-center rounded-full text-ink max-md:min-h-11", ELEVATED_FLOAT)}>
       <WorkspaceThreadPicker key={bot.id} owner={bot} onProfile={() => onToggle(true)}>
         {identity}
         {!conversation && (

@@ -140,7 +140,7 @@ export const RoomTextMessage = memo(function RoomTextMessage({
   return (
     <div {...{ [MESSAGE_ROW]: "" }} data-look={user ? "message-user" : "message-bot"} className={cn("group flex w-full flex-col", user ? "items-end" : "items-start")}>
       {speaker && <div className="mb-0.5 px-1 text-right text-[13px] [overflow-wrap:anywhere] font-semibold text-ink-secondary">{speaker}</div>}
-      <div className={cn("flex w-full items-end gap-1.5", user ? "justify-end" : "justify-start")}>
+      <div className={cn("flex w-full items-end gap-1.5", user ? "justify-end" : "reply-line justify-start")}>
         {user && (
           <MessageActions side="user" menu={[...userMessageMenu({ messageId: m.id, pin }), ...forkAction]} contextItems={replyAndCopy(() => onReply(m), display)}>
             <ReplyAction onReply={() => onReply(m)} />
