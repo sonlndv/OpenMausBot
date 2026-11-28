@@ -1,5 +1,6 @@
 import { useLayoutEffect, useState, type RefObject } from "react";
 import { coarsePointerNow } from "@/lib/use-media-query";
+import { isIosHomeScreen } from "@/lib/ios-home-screen";
 
 /** Simple: anything that grows the pill past its one 44px row (a second line, a reply strip) rounds its corners in. */
 export function useTallPill(shellRef: RefObject<HTMLDivElement | null>, on: boolean): boolean {
@@ -21,7 +22,7 @@ export function useComposerKeyboardInset(shellRef: RefObject<HTMLDivElement | nu
   useLayoutEffect(() => {
     const viewport = window.visualViewport;
     const dock = shellRef.current?.closest<HTMLElement>(".chat-column-dock");
-    if (!viewport || !dock || !coarsePointerNow()) return;
+    if (!viewport || !dock || isIosHomeScreen() || !coarsePointerNow()) return;
     const update = () => {
       const bottom = viewport.offsetTop + viewport.height;
       const inset = viewport.scale === 1 && bottom < document.documentElement.clientHeight

@@ -21,10 +21,16 @@ import { endedBeforeReload, forgetEndedSession } from "./lib/session-ended";
 import { signInGateShown } from "./lib/sign-in-gate";
 import { startDesktopLaunchMarks } from "./lib/launch-marks";
 import { serverFetch } from "./lib/relay-server";
+import { fitHomeScreenViewport, isIosHomeScreen } from "./lib/ios-home-screen";
 import "./styles.css";
 
-// WebKit's Home Screen flag also works when iPadOS sends a desktop user agent.
-if (!("standalone" in navigator && navigator.standalone === true && navigator.maxTouchPoints > 0)) {
+if (isIosHomeScreen()) {
+  fitHomeScreenViewport(document.getElementById("root")!);
+  const statusEdge = document.createElement("div");
+  statusEdge.className = "ios-home-screen-status-edge";
+  statusEdge.setAttribute("aria-hidden", "true");
+  document.body.append(statusEdge);
+} else {
   const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
   if (viewport) viewport.content += ", viewport-fit=cover";
 }

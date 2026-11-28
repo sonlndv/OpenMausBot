@@ -1432,12 +1432,31 @@ body,
   }
 }
 
+/* iOS Home Screen samples the styled background of a fixed top edge taller
+   than 10px for its status bar. Clip to empty text so it doesn't paint over
+   controls: https://zenn.dev/uakihir0/articles/260920-ios27-pwa-blur */
+.ios-home-screen-status-edge {
+  position: fixed;
+  inset: 0 0 auto;
+  height: 11px;
+  z-index: 2147483647;
+  pointer-events: none;
+  background-color: var(--color-app);
+  background-clip: text;
+}
+
 /* Standalone phone windows can reach behind the notch and home indicator.
    Keep the app's existing h-full layout inside the usable area. Desktop
    browsers and Electron report zero insets. */
 #root {
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
     env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+#root.ios-editing-viewport {
+  position: fixed;
+  inset: var(--editing-top) 0 auto;
+  height: var(--editing-height);
+  padding-bottom: 0;
 }
 
 /* ────────────────────────────────────────────────────────────────────────

@@ -196,6 +196,8 @@ async function connect(url: string) {
     // signals on the same build, including iPadOS's desktop UA and zero inset.
     const viewport = `document.querySelector('meta[name="viewport"]').content`;
     expect(await evaluate(viewport)).toContain("viewport-fit=cover");
+    const statusEdge = `document.querySelector('.ios-home-screen-status-edge')`;
+    expect(await evaluate(`Boolean(${statusEdge})`)).toBe(false);
     await request("Emulation.setSafeAreaInsetsOverride", { insets: { top: 0, right: 0, bottom: 0, left: 0 } });
     await request("Emulation.setUserAgentOverride", { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 Version/26.0 Safari/605.1.15" });
     await request("Page.addScriptToEvaluateOnNewDocument", { source: "Object.defineProperty(navigator,'standalone',{value:true});localStorage.setItem('omb-skin','midnight');for(const key of ['omb-simple-mode-prompt','boat-credit-2026-11','github-star-dismissed'])localStorage.setItem(key,'1')" });
@@ -231,6 +233,12 @@ async function connect(url: string) {
         if (width < 768) await expect.poll(() => evaluate(`${sidebarBox}.right`)).toBeLessThanOrEqual(0);
         if (width >= 768) await expect.poll(() => evaluate(`${sidebarBox}.width`)).toBeLessThan(width / 2);
         await expect.poll(() => evaluate(`innerWidth===${width} && !!(${threads})===${width < 768}`)).toBe(true);
+        expect(await evaluate(`(() => {
+          const edge=${statusEdge}, rect=edge.getBoundingClientRect(), style=getComputedStyle(edge);
+          return rect.top===0 && rect.left===0 && rect.width===innerWidth && rect.height>10 &&
+            style.position==='fixed' && style.backgroundColor===getComputedStyle(document.querySelector('[data-look="chat"]')).backgroundColor &&
+            style.backgroundClip==='text' && style.pointerEvents==='none' && document.elementFromPoint(innerWidth/2,4)!==edge;
+        })()`)).toBe(true);
         const tag = `pwa-${mode}-${width}x${height}`;
         await capture(tag);
         const frames = await evaluate(`(async()=>{const frames=[];for(let n=0;n<6;n++){const tick=Promise.withResolvers();requestAnimationFrame(tick.resolve);await tick.promise;frames.push(${headerFrame})}return frames})()`);
@@ -259,6 +267,24 @@ async function connect(url: string) {
           await tap(`document.querySelector('textarea[aria-label^="Message"]')`);
           await expect.poll(() => evaluate(`document.activeElement.tagName`)).toBe("TEXTAREA");
           continue;
+        }
+        if (width === 320) {
+          await tap(activeInput);
+          // Replay WebKit's keyboard geometry; Chromium's device resize also shrinks the layout viewport.
+          await evaluate(`Object.defineProperty(visualViewport,'height',{configurable:true,value:300});visualViewport.dispatchEvent(new Event('resize'))`);
+          await evaluate(`Object.defineProperty(visualViewport,'offsetTop',{configurable:true,value:110});visualViewport.dispatchEvent(new Event('scroll'))`);
+          const keyboardFit = `(() => {
+            const top=visualViewport.offsetTop, bottom=top+visualViewport.height, row=${activeInput}.closest('[data-composer-row]').getBoundingClientRect();
+            return ${threads}.getBoundingClientRect().top>=top && bottom-row.bottom>=0 && bottom-row.bottom<32;
+          })()`;
+          await expect.poll(() => evaluate(keyboardFit)).toBe(true);
+          await request("Input.insertText", { text: "So" });
+          const draft = await evaluate(`${activeInput}.value`);
+          expect(draft).toContain("So");
+          await capture(`${tag}-visual-keyboard`);
+          await evaluate(`delete visualViewport.height;delete visualViewport.offsetTop;visualViewport.dispatchEvent(new Event('resize'))`);
+          await expect.poll(() => evaluate(keyboardFit)).toBe(true);
+          expect(await evaluate(`${activeInput}.value`)).toBe(draft);
         }
         if (width === 507) {
           await tap(activeInput);

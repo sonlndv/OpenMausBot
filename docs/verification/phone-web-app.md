@@ -8,6 +8,11 @@ WebKit's system viewport rather than drawing under the status bar. The app
 respects reported safe-area insets without adding an extra spacer when WebKit
 already reserves the space. Touch standalone windows keep an opaque chat header
 in portrait, landscape and iPad Split View.
+On touch WebKit Home Screen launches, a fixed edge supplies the skin color for
+the system status bar without adding space or intercepting taps. This is a
+[workaround for WebKit's native blur](https://zenn.dev/uakihir0/articles/260920-ios27-pwa-blur),
+not a CSS switch for the system effect. Check a cold launch, scroll and resume
+on an installed iPhone and iPad; a Safari tab is the negative control.
 
 ## Isolated browser checks
 
@@ -31,7 +36,10 @@ browser profile nor live OpenMausBot data is used.
 
 The Home Screen layout check records animation-frame geometry and touch events
 in both modes. It switches between a quiet thread and one at 93% context, opens
-Bots, Threads and More, resizes a draft, and invokes Compact now. The file
+Bots, Threads and More, resizes a draft, and invokes Compact now.
+The typing check also replays a keyboard that shrinks and pans only the visible
+viewport, then dismisses it. The header must stay visible, the composer must
+stay next to the keyboard, and the draft must survive. The file
 check opens, closes and saves a long-named upload, linked file and delivered
 file. Both use the production renderer, not a live workspace or an iOS simulator.
 
