@@ -205,7 +205,7 @@ function RoundChatMoreMenu({ bot, phoneHeader }: { bot: Bot; phoneHeader: boolea
     <SidebarPopoverMenu
       items={items}
       ariaLabel={t("chat.more")}
-      triggerClassName="rounded-full"
+      triggerClassName="block rounded-full"
       triggerTitle={t("chat.more")}
       renderTrigger={({ open }) => (
         <span
@@ -213,7 +213,7 @@ function RoundChatMoreMenu({ bot, phoneHeader }: { bot: Bot; phoneHeader: boolea
           className={cn(
             "flex size-9 items-center justify-center rounded-full",
             advanced ? "bg-raised/50 transition-colors hover:bg-raised" : cn(ELEVATED_CONTROL, ELEVATED_HOVER, open && ELEVATED_OPEN),
-            "phone-header-surface max-md:size-10 max-md:border max-md:border-hairline",
+            "phone-header-surface max-md:size-11 max-md:border max-md:border-hairline",
             open || on ? "text-accent" : "text-ink",
           )}
         >

@@ -97,14 +97,14 @@ export function ThreadSwitcherPill({ bot, avatar, badges }: { bot: Bot; avatar: 
   return <>
     <button type="button" data-chathead-pill data-chathead-threads aria-haspopup="dialog" aria-controls={anchor ? id : undefined} aria-expanded={!!anchor}
       onClick={event => { event.currentTarget.focus({ preventScroll: true }); setAnchor(event.currentTarget); }}
-      className={cn("phone-header-surface flex min-h-11 min-w-0 max-w-full items-center gap-2 rounded-full ps-2 pe-3 py-1 text-start text-ink", ELEVATED_FLOAT, ELEVATED_HOVER, FOCUS)}>
+      className={cn("phone-header-surface flex h-11 min-w-0 max-w-full items-center gap-2 rounded-full ps-2 pe-3 text-start text-ink", ELEVATED_FLOAT, ELEVATED_HOVER, FOCUS)}>
       <span aria-hidden="true" className="shrink-0">{avatar}</span>
       <span className="flex min-w-0 flex-col">
         <span className="flex min-w-0 items-center gap-1 text-xs leading-4 text-ink-secondary">
           <span className="shrink-0 font-medium">{t("task.list")}</span><span aria-hidden="true">·</span>
           <span dir="auto" className="min-w-0 truncate">{bot.name}</span>{badges}
         </span>
-        <span data-chathead-conversation dir="auto" className="line-clamp-2 text-base font-semibold leading-5 [overflow-wrap:anywhere]">{current ? tabTitle(current) : t("task.untitledChat")}</span>
+        <span data-chathead-conversation dir="auto" className="truncate text-base font-semibold leading-5">{current ? tabTitle(current) : t("task.untitledChat")}</span>
       </span>
       <ChevronDown size={15} aria-hidden="true" className={cn("shrink-0 text-ink-secondary", anchor && "rotate-180")} />
     </button>

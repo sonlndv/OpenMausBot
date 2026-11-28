@@ -49,7 +49,8 @@ export function PinnedMessagesMenu({ pins, onJump, onUnpin, triggerClassName }: 
     if (pins.length === 1) {
       setOpen(false);
       const here = root.current;
-      const beside = [...(here?.parentElement?.querySelectorAll<HTMLElement>("button:not(:disabled)") ?? [])]
+      const controls = here?.closest("[data-chathead-controls]") ?? here?.parentElement;
+      const beside = [...(controls?.querySelectorAll<HTMLElement>("button:not(:disabled)") ?? [])]
         .filter((button) => !here?.contains(button) && button.checkVisibility?.() !== false);
       const comesAfter = (button: HTMLElement) => Boolean(here && here.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING);
       (beside.find(comesAfter) ?? beside.findLast((button) => !comesAfter(button)) ?? trigger.current)?.focus();

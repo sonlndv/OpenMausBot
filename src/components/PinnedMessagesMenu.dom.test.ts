@@ -79,9 +79,9 @@ it("closes for good once the last pin is gone, and hands focus to the button bes
 
 it("prefers the button after the menu to the one before it when the last pin goes", async () => {
   const root = createRoot(document.body.appendChild(document.createElement("div")));
-  await act(async () => root.render(createElement("div", null,
+  await act(async () => root.render(createElement("div", { "data-chathead-controls": "" },
     createElement("button", { "data-before": "" }),
-    createElement(PinnedMessagesMenu, { pins: PINS, onJump: vi.fn(), onUnpin: vi.fn() }),
+    createElement("div", null, createElement(PinnedMessagesMenu, { pins: PINS, onJump: vi.fn(), onUnpin: vi.fn() })),
     createElement("button", { disabled: true }),
     createElement("button", { "data-after": "" }),
     createElement("button", { "data-last": "" }),

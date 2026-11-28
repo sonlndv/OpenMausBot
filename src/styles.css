@@ -118,6 +118,12 @@
 @media (pointer: coarse) { .table-action { min-width: 40px; min-height: 40px; } }
 /* inside a 28px file pill under a reply, the table preview is a 24px circle */
 .file-chip .table-action { width: 24px; height: 24px; min-width: 24px; min-height: 24px; border-radius: 9999px; }
+@media (hover: none), (pointer: coarse) {
+  :is(.file-action-row, .file-preview-dialog, [data-file-preview]) .table-action {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
 /* a table card's hover plate fits the card's 24px top band; touch keeps 40px targets in a taller band */
 @media (pointer: fine) { .table-plate .table-action { width: 24px; height: 24px; min-width: 24px; min-height: 24px; } }
 
@@ -1434,13 +1440,6 @@ body,
     env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 
-/* Leave solid space above both the chat and sidebar in the system viewport.
-   A reported top inset already provides clearance; don't add it twice. */
-html[data-ios-home-screen] #root {
-  padding-top: max(env(safe-area-inset-top, 0px), clamp(12px, 3vh, 24px));
-  background-color: var(--color-app);
-}
-
 /* ────────────────────────────────────────────────────────────────────────
    FONTS
    An optional interface-font override, independent of the skin (see
@@ -2152,7 +2151,7 @@ body {
   top: var(--thread-dropdown-top);
   max-height: min(28rem, calc(100% - var(--thread-dropdown-top) - max(8px, env(safe-area-inset-bottom))));
 }
-@media (width < 48rem) {
+@media (width < 48rem), (display-mode: standalone) and (pointer: coarse) {
   .phone-header-surface {
     background-color: color-mix(in srgb, var(--color-card), var(--color-ink) 12%);
   }
@@ -2179,7 +2178,7 @@ body {
   pointer-events: none;
 }
 [data-chathead-float] > :not([data-look="chat-header"]),
-[data-chathead-float] :is([data-chathead-identity], [data-chathead-controls]) > * {
+[data-chathead-float] :is([data-chathead-identity], [data-chathead-live], [data-chathead-actions]) > * {
   pointer-events: auto;
 }
 /* The colour of the place on screen (PlaceTint), faint, from the very top of the sidebar to just below its head, under
@@ -4057,6 +4056,10 @@ button:disabled.bg-danger {
   [data-chathead-tabs] [data-chathead-controls] :is(.size-9, .h-9, [data-model-pill]) { height: 32px; }
   [data-chathead-tabs] [data-chathead-controls] .size-9 { width: 32px; }
   [data-chathead-tabs] [data-chathead-controls] .min-w-9 { min-width: 32px; }
+  @container chatbar (width < 48rem) {
+    [data-chathead-tabs]:has([data-chathead-live]:not(:empty)) { height: auto; }
+    [data-chathead-tabs] [data-chathead-live] { grid-column: 1 / -1; grid-row: 1; }
+  }
 }
 .thread-tab-indicator {
   --tab-foot: 10px;

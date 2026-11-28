@@ -24,9 +24,7 @@ import { serverFetch } from "./lib/relay-server";
 import "./styles.css";
 
 // WebKit's Home Screen flag also works when iPadOS sends a desktop user agent.
-if ("standalone" in navigator && navigator.standalone === true && navigator.maxTouchPoints > 0) {
-  document.documentElement.dataset.iosHomeScreen = "";
-} else {
+if (!("standalone" in navigator && navigator.standalone === true && navigator.maxTouchPoints > 0)) {
   const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
   if (viewport) viewport.content += ", viewport-fit=cover";
 }

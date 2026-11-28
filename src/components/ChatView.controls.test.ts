@@ -21,7 +21,7 @@ vi.mock("@/state/store", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/state/store")>();
   return { ...original, useStore: () => ({
     state: { ...original.initialState, config: fixture.showToolCalls || fixture.headerFeatures.threadTabs ? { features: { showToolCalls: fixture.showToolCalls, ...fixture.headerFeatures } } : null,
-      instances: [{ instanceId: "test", driverKind: "codex", displayName: "Test", models: { options: [] } } as unknown as InstanceInfo] },
+      instances: [{ instanceId: "test", driverKind: "codex", displayName: "Test", models: { options: [] }, snapshot: { billing: "subscription" } } as unknown as InstanceInfo] },
     dispatch: fixture.dispatch,
   }) };
 });
@@ -75,6 +75,25 @@ describe("the header's right side", () => {
     const markup = renderToStaticMarkup(createElement(ChatView, { bot: of }));
     return { markup, controls: markup.slice(markup.indexOf("data-chathead-controls"), markup.indexOf("role=\"log\"")) };
   };
+
+  it.each([false, true])("keeps the selected thread and More separate from a live 93% warning (advanced: %s)", (advanced) => {
+    fixture.advanced = advanced;
+    try {
+      const of: Bot = { ...bot, tasks: bot.tasks!.map(task => ({ ...task, busy: true,
+        usage: { input: 7, output: 3, costUsd: null, turns: 1, context: { tokens: 252_960, window: 272_000 } },
+      })) };
+      const markup = renderToStaticMarkup(createElement(TiledPaneTitle.Provider, { value: "Selected thread" }, createElement(ChatView, { bot: of })));
+      const [identity, controls] = markup.split("data-chathead-controls");
+      const [live, actions] = controls!.split("data-chathead-actions");
+      expect(identity).toContain("Selected thread");
+      expect(live).toContain("Context 253k (93% of 272k)");
+      expect(live).toMatch(/<button[^>]*disabled=""[^>]*>Compact now<\/button>/);
+      expect(actions).toContain('data-testid="chat-more"');
+      expect(actions).not.toContain('data-testid="context-warning"');
+    } finally {
+      fixture.advanced = true;
+    }
+  });
 
   it("keeps New thread in the primary tile when the normal desktop header would put it in the tab strip", () => {
     fixture.headerFeatures.threadTabs = true;
@@ -657,8 +676,8 @@ describe("thread control placement", () => {
     expect(row[1].split(" ")).toContain("@max-[30rem]/chathead:flex-wrap");
     const identity = /data-chathead-identity="[^"]*" class="([^"]*)"/.exec(markup)!;
     expect(identity[1].split(" ")).toEqual(expect.arrayContaining(["min-w-0", "@max-[30rem]/chathead:basis-full"]));
-    const controls = /data-chathead-controls="[^"]*" class="([^"]*)"/.exec(markup)!;
-    expect(controls[1].split(" ")).toEqual(expect.arrayContaining(["shrink-0", "@max-[30rem]/chathead:ml-auto", "@max-[30rem]/chathead:flex-wrap"]));
+    const actions = /data-chathead-actions="[^"]*" class="([^"]*)"/.exec(markup)!;
+    expect(actions[1].split(" ")).toEqual(expect.arrayContaining(["max-w-full", "flex-wrap"]));
   });
 
   it("keeps the Chief of Staff badge on one line instead of stacking a word per line", () => {

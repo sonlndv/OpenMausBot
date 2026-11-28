@@ -74,7 +74,7 @@ function FilePane({ preview }: { preview: FilePreview }) {
       />
       <header {...dragProps} className="ms-1.5 flex items-center gap-1 py-2.5 ps-2.5 pe-3">
         <h2 dir="auto" title={preview.name} className="min-w-0 flex-1 truncate text-[17px] font-semibold text-ink">{preview.kind === "changes" ? t("changes.title", { name: preview.name }) : preview.name}</h2>
-        <button ref={closeButton} type="button" className="ui-icon-button shrink-0" aria-label={t("attach.besideClose")} title={t("attach.besideClose")} onClick={dismiss}><X size={16} /></button>
+        <button ref={closeButton} type="button" className="ui-icon-button shrink-0 touch:min-h-11 touch:min-w-11" aria-label={t("attach.besideClose")} title={t("attach.besideClose")} onClick={dismiss}><X size={16} /></button>
       </header>
       {/* An HTML file's frame swallows the pointer, so the resize drag would stop the moment it crossed the page. */}
       <div className={cn("ms-1.5 flex min-h-0 flex-1 flex-col overflow-auto px-3 pb-3", dragging && "pointer-events-none")}>

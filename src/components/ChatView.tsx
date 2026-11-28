@@ -739,7 +739,6 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
   const phone = useMediaQuery(PHONE_LAYOUT);
   const paneTitle = use(TiledPaneTitle);
   const compactHeader = phone || Boolean(paneTitle);
-  const wrapPhoneHeader = phone && advanced && !paneTitle;
   const compactMenu = compactHeader && (!remoteClient || Boolean(paneTitle));
   const simpleHead = !advanced && !remoteClient;
   const placed = isPlaceId(bot.id);
@@ -909,10 +908,10 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
     <main data-look="chat" className="relative flex h-full min-w-0 flex-1 flex-col bg-app">
       <ChatBackdrop /><CallOverlay bot={bot} />
       <GlassScrollFrame className="flex-1 [--glass-tint:var(--color-app)]">
-      <GlassBar edge="top" fade={!remoteClient} data-chathead-float={simpleHead ? "" : undefined} className="z-[25]">
+      <GlassBar edge="top" fade={!remoteClient} data-chathead-float={simpleHead ? "" : undefined} className="@container/chatbar z-[25]">
       <div {...headerDragProps} data-look="chat-header" data-chathead-tabs={headTabs ? (simpleHead ? "simple" : "advanced") : undefined} className={chatHeaderContainer(Boolean(paneTitle), simpleHead)}>
-        <div data-chathead-row className={cn("flex items-center justify-between", compactHeader ? "gap-2" : "@max-[30rem]/chathead:flex-wrap @max-[30rem]/chathead:gap-y-1 @min-[30rem]/chathead:grid @min-[30rem]/chathead:grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(max-content,1fr)]", wrapPhoneHeader && "flex-wrap")}>{advanced && !inForkPanel && !pillSwitcher && <ChatActivityControls key={bot.threadId} activity={activity} compact={Boolean(paneTitle)} botId={bot.id} style={headerNoDragStyle} />}
-        <div data-chathead-identity className={cn("flex min-w-0 items-center gap-2", compactHeader ? "flex-1" : "@max-[30rem]/chathead:basis-full @min-[30rem]/chathead:col-start-2 @min-[30rem]/chathead:justify-self-center", wrapPhoneHeader && !pillSwitcher && "flex-auto", simpleHead && phone && "justify-center")} style={headerNoDragStyle}>{headTabs && <HeaderThreadTabs bot={bot} />}
+        <div data-chathead-row className={cn("flex items-center justify-between", compactHeader ? "flex-wrap gap-x-2 gap-y-1" : "@max-[30rem]/chathead:flex-wrap @max-[30rem]/chathead:gap-y-1 @min-[30rem]/chathead:grid @min-[30rem]/chathead:grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(max-content,1fr)]")}>{advanced && !inForkPanel && !pillSwitcher && <ChatActivityControls key={bot.threadId} activity={activity} compact={compactHeader} botId={bot.id} style={headerNoDragStyle} />}
+        <div data-chathead-identity className={cn("flex min-w-0 items-center gap-2", compactHeader ? "flex-[1_1_9rem]" : "@max-[30rem]/chathead:basis-full @min-[30rem]/chathead:col-start-2 @min-[30rem]/chathead:justify-self-center", simpleHead && phone && "justify-center")} style={headerNoDragStyle}>{headTabs && <HeaderThreadTabs bot={bot} />}
           {simpleHead || paneTitle || pillSwitcher ? (
             <ChatHeadPill bot={bot} switcher={pillSwitcher}
               threadTitle={paneTitle ?? undefined}
@@ -986,11 +985,9 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
             </button>
           )}
         </div>
-        <div
-          data-chathead-controls
-          className={cn("flex shrink-0 items-center gap-2", wrapPhoneHeader && "ms-auto max-w-full flex-wrap justify-end", !compactHeader && "@max-[30rem]/chathead:ml-auto @max-[30rem]/chathead:flex-wrap @max-[30rem]/chathead:justify-end @min-[30rem]/chathead:col-start-3 @min-[30rem]/chathead:justify-self-end")}
-        >{sharedChat && <ThreadPresenceFaces threadId={bot.threadId} />}
-          {advanced && pillSwitcher && <ChatActivityControls key={bot.threadId} activity={activity} compact botId={bot.id} style={headerNoDragStyle} />}
+        <div data-chathead-controls className={cn("flex shrink-0 items-center gap-2 @max-[48rem]/chatbar:contents", !compactHeader && "@min-[30rem]/chathead:col-start-3 @min-[30rem]/chathead:justify-self-end")}>
+          <div data-chathead-live className="order-last col-span-full flex min-w-0 basis-full flex-wrap items-center justify-end gap-1 empty:hidden @min-[48rem]/chatbar:contents">
+          {sharedChat && <ThreadPresenceFaces threadId={bot.threadId} />}
           {!simpleHead && (bot.busy || bot.waitingForTeammates) && (
             <button
               onClick={() => dispatch({ type: "interrupt", botId: bot.id, threadId: bot.threadId })}
@@ -1006,15 +1003,17 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
           )}
           <ThreadContextWarning bot={bot} messages={messages} />
           {phone && !placed && <UsageAlert engine={bot.modelSelection?.instanceId} />}
-          {/* Simple mode keeps the model here and moves only ⋯ into the bot panel; Advanced shows it under the composer's field. */}
-          {!compactHeader && (!advanced || canWrite === false) && (placed ? <PlacedModelPill bot={bot} /> : <ModelPicker key={bot.threadId} bot={bot} threadId={bot.threadId} folded={state.settingsOpen || state.computerOpen} />)}
-          <LiveCallChip currentBotId={bot.id} onOpen={(botId, threadId) => openThread(dispatch, { botId, threadId }, store.state(), showThreads)} />{!compactMenu && <WatchScreenButton botId={bot.id} messages={messages} liveTools={liveTools} place={place} />}
+          {phone && <LiveCallChip currentBotId={bot.id} onOpen={(botId, threadId) => openThread(dispatch, { botId, threadId }, store.state(), showThreads)} />}{!compactMenu && <WatchScreenButton botId={bot.id} messages={messages} liveTools={liveTools} place={place} />}
           <PinnedMessagesMenu
             pins={pinnedPreview(messages, bot.pinnedMessageId, bot.name)}
             triggerClassName={cn(ELEVATED_FLOAT, ELEVATED_HOVER)}
             onJump={(messageId) => dispatch({ type: "focusMessage", threadId: bot.threadId, messageId })}
             onUnpin={remoteClient ? undefined : () => dispatch({ type: "updateTask", botId: bot.id, threadId: bot.threadId, patch: { pinnedMessageId: "" } })}
           />
+          </div>
+          <div data-chathead-actions className="col-start-3 ms-auto flex max-w-full flex-wrap items-center justify-end gap-2 @min-[48rem]/chatbar:contents">
+          {advanced && pillSwitcher && <ChatActivityControls key={bot.threadId} activity={activity} compact botId={bot.id} style={headerNoDragStyle} />}
+          {!compactHeader && (!advanced || canWrite === false) && (placed ? <PlacedModelPill bot={bot} /> : <ModelPicker key={bot.threadId} bot={bot} threadId={bot.threadId} folded={state.settingsOpen || state.computerOpen} />)}
           {!compactMenu && !placed && <button
             data-tour="computer"
             onClick={(event) => { if (!state.computerOpen) rememberComputerPanelOpen({ botId: bot.id, opener: event.currentTarget, tabs: event.detail === 0 }); dispatch({ type: "toggleComputer" }); }}
@@ -1028,6 +1027,7 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
             <Monitor size={16} />{busy && place === "browser" && <span aria-hidden="true" className="absolute right-1 top-1 size-1.5 animate-pulse rounded-full bg-success" data-testid="computer-button-live" />}
           </button>}
           {!placed && <HeaderShare bot={bot} />}{!inForkPanel && !pillSwitcher && <NewThreadHeaderButton botId={bot.id} tabs={headTabs} />}{!placed && (compactMenu ? <ChatMoreMenu bot={bot} phoneHeader /> : (advanced || remoteClient) && <ChatHeaderMenu key={`menu:${bot.threadId}`} bot={bot} />)}
+          </div>
         </div>
         </div>
       </div>

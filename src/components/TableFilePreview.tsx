@@ -48,7 +48,7 @@ export function TableFileButton({ path, shownPath, name, message }: { path: stri
   };
   return <>
     <button ref={trigger} type="button" className="table-action" title={t("table.preview", { name })} aria-label={t("table.preview", { name })} onClick={show}><Table2 size={14} /></button>
-    {open && <TableDialog title={name} returnFocus={trigger.current} onClose={() => setOpen(false)}><TableFileContent key={`${message.threadId}:${message.messageId}:${path}`} path={path} shownPath={shownPath} name={name} message={message} delimiter={delimiter} /></TableDialog>}
+    {open && <TableDialog className="file-preview-dialog" title={name} returnFocus={trigger.current} onClose={() => setOpen(false)}><TableFileContent key={`${message.threadId}:${message.messageId}:${path}`} path={path} shownPath={shownPath} name={name} message={message} delimiter={delimiter} /></TableDialog>}
   </>;
 }
 

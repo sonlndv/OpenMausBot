@@ -46,9 +46,12 @@ where they belong instead of adding new places.
   pinned message) is fine: it opens a menu and is gone when there is nothing
   to show. In a narrow bot chat, **Bots** opens the workspace list and **Threads**
   opens a dropdown directly below the title without moving or dimming the chat.
+  Keep Bots, Threads and More the same height. The selected title takes one line with an ellipsis; dropdown rows show full titles.
   The current thread is checked; **New thread** stays below the scrolling list for writers.
   The profile stays in More. In wider windows, **New thread** (also ⌘T) sits
   at the end of the header or, with Thread tabs on, at the end of the tab strip.
+  On iPhone and iPad, the reference surface is the installed Home Screen app.
+  Check the header with a long thread title and a live context warning, not only an empty chat.
 - **No count badges and no "needs you" summaries** above the sidebar list or
   in the header. A status mark on the row it belongs to is fine.
 - **Settings for one bot live in its bot panel.** App-wide settings live in

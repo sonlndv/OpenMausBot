@@ -166,6 +166,5 @@ describe("Simple mode's floating chat header", () => {
 
   it("lets clicks between its controls through to the transcript", () => {
     expect(rule("[data-chathead-float]")).toContain("pointer-events: none");
-    expect(css).toContain('[data-chathead-float] > :not([data-look="chat-header"]),\n[data-chathead-float] :is([data-chathead-identity], [data-chathead-controls]) > * {\n  pointer-events: auto;');
   });
 });

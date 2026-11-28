@@ -53,5 +53,9 @@ describe("context warning", () => {
     const busy = renderToStaticMarkup(createElement(ThreadContextWarningView, { name: "Scout", tokens: 180_000, window: 200_000, percent: 90, busy: true, pending: false, onCompact: vi.fn() }));
     expect(busy).toContain("disabled=\"\"");
     expect(busy).toContain("Stop this bot&#x27;s turn first");
+
+    const pending = renderToStaticMarkup(createElement(ThreadContextWarningView, { name: "Scout", tokens: 252_960, window: 272_000, percent: 93, busy: false, pending: true, onCompact: vi.fn() }));
+    expect(text(pending)).toBe("Context 253k (93% of 272k) Compacting…");
+    expect(pending).toContain("disabled=\"\"");
   });
 });

@@ -33,11 +33,11 @@ export function ThreadContextWarningView({ name, tokens, window, percent, busy, 
     ? t("chat.usage.contextOfWindow", { tokens: formatTokens(tokens), percent: String(percent), window: formatTokens(window) })
     : t("chat.usage.context", { tokens: formatTokens(tokens) });
   return (
-    <span role="status" data-testid="context-warning" className={danger ? pill : calmPill}
+    <span role="status" data-testid="context-warning" className={cn(danger ? pill : calmPill, "min-w-0 max-w-full @max-[48rem]/chatbar:gap-1 @max-[48rem]/chatbar:py-0")}
       title={percent === undefined ? undefined : t("contextWarning.threadHint", { name, percent })}>
       <Gauge size={13} className={cn("shrink-0", danger ? "text-warning" : "text-ink-tertiary")} aria-hidden="true" />
-      <span className="tabular-nums">{reading}</span>
-      <button type="button" className={action} disabled={busy || pending} onClick={onCompact}
+      <span className="min-w-0 text-start tabular-nums">{reading}</span>
+      <button type="button" className={cn(action, "@max-[48rem]/chatbar:min-h-11")} disabled={busy || pending} onClick={onCompact}
         title={busy ? t("contextWarning.busy") : undefined}>
         {pending ? t("contextWarning.compacting") : t("contextWarning.compactNow")}
       </button>

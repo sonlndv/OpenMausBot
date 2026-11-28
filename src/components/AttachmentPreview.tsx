@@ -393,7 +393,7 @@ function MessageFolderFile({ folderPath, name, bytes, message }: {
         onClick={() => void save.save()}
         disabled={save.state === "saving"}
         aria-label={t("attach.saveAria", { name })}
-        className="inline-flex min-h-8 min-w-0 items-center gap-1 break-all text-start text-accent underline decoration-accent/40 hover:decoration-accent disabled:cursor-wait"
+        className="inline-flex min-h-8 min-w-0 max-w-full items-center gap-1 break-all text-start text-accent underline decoration-accent/40 hover:decoration-accent disabled:cursor-wait touch:min-h-11 touch:min-w-11"
       >
         {save.state === "saving" ? (
           <LoaderCircle size={12} className="shrink-0 animate-spin" aria-hidden="true" />
@@ -877,7 +877,7 @@ export function AttachedFileChip({ file, message, linked = false, compact = fals
   if (compact) return <CompactFileChip file={file} message={message} linked={linked} save={save} preview={preview} className={className} />;
   if (!message || (!file.private && !linked)) {
     return (
-      <div title={t("attach.legacyFile", { name: file.name })} className={cn("flex max-w-[280px] items-center gap-2 overflow-hidden rounded-lg border border-hairline/40 bg-inset/70 px-2.5 py-2 text-[12px] text-ink-secondary", className)}>
+      <div title={t("attach.legacyFile", { name: file.name })} className={cn("flex min-w-0 max-w-[min(280px,100%)] items-center gap-2 overflow-hidden rounded-lg border border-hairline/40 bg-inset/70 px-2.5 py-2 text-[12px] text-ink-secondary", className)}>
         <FileText size={14} className="shrink-0" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate text-ink">{file.name}</span>
         <span className="text-[11px]">{t("attach.unavailable")}</span>
@@ -887,13 +887,13 @@ export function AttachedFileChip({ file, message, linked = false, compact = fals
   return (
     <div
       title={save.state === "saved" && save.savedTo ? t("attach.savedTo", { path: save.savedTo }) : file.name}
-      className={cn("max-w-[280px] overflow-hidden rounded-lg border border-hairline/40 bg-inset/70 text-[12px] text-ink-secondary", className)}
+      className={cn("min-w-0 max-w-[min(280px,100%)] overflow-hidden rounded-lg border border-hairline/40 bg-inset/70 text-[12px] text-ink-secondary", className)}
     >
-      <div className="flex items-center pe-1">
+      <div className="file-action-row flex items-center pe-1">
         <button
           type="button"
           {...chipNameAction(preview, save, file.name, save.retryable)}
-          className="flex min-h-10 min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left transition-colors hover:bg-raised/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60 disabled:cursor-wait disabled:hover:bg-transparent"
+          className="flex min-h-10 min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left transition-colors hover:bg-raised/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60 disabled:cursor-wait disabled:hover:bg-transparent touch:min-h-11"
         >
           <FileText size={14} className="shrink-0" aria-hidden="true" />
           <span className="min-w-0 flex-1 truncate text-ink">{file.name}</span>{note && <span className="min-w-0 max-w-[45%] shrink truncate text-[11px] text-ink-tertiary">{note}</span>}
@@ -938,7 +938,7 @@ export function AttachedFileChip({ file, message, linked = false, compact = fals
   );
 }
 
-const FILE_CHIP = "inline-flex h-7 max-w-[16rem] items-center rounded-full bg-ink/[0.06] text-[13px] leading-none text-ink-secondary";
+const FILE_CHIP = "inline-flex h-7 min-w-0 max-w-[min(16rem,100%)] items-center rounded-full bg-ink/[0.06] text-[13px] leading-none text-ink-secondary";
 
 function CompactFileChip({ file, message, linked, save, preview, className }: {
   file: TranscriptFileAttachment & { shownPath?: string };
@@ -963,12 +963,12 @@ function CompactFileChip({ file, message, linked, save, preview, className }: {
     <span className="inline-flex max-w-full flex-col items-start gap-1">
       <span
         title={save.state === "saved" && save.savedTo ? t("attach.savedTo", { path: save.savedTo }) : file.name}
-        className={cn(FILE_CHIP, "file-chip pe-0.5", className)}
+        className={cn(FILE_CHIP, "file-chip file-action-row pe-0.5 touch:h-11", className)}
       >
         <button
           type="button"
           {...chipNameAction(preview, save, file.name, save.retryable)}
-          className="inline-flex h-7 min-w-0 items-center gap-1.5 rounded-full ps-2.5 pe-2 transition-colors hover:bg-ink/[0.06] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-wait"
+          className="inline-flex h-full min-w-0 items-center gap-1.5 rounded-full ps-2.5 pe-2 transition-colors hover:bg-ink/[0.06] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-wait"
         >
           <FileText size={14} className="shrink-0" aria-hidden="true" />
           {name}

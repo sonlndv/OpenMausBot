@@ -74,7 +74,7 @@ export function useHtmlPreview(path: string, name: string, message?: MessageAtta
       setOpen(true);
     },
     dialog: kind && open && message
-      ? <TableDialog title={name} returnFocus={opener.current} onClose={() => setOpen(false)}>
+      ? <TableDialog className="file-preview-dialog" title={name} returnFocus={opener.current} onClose={() => setOpen(false)}>
         <FilePreviewContent kind={kind} path={path} shownPath={shownPath} name={name} message={message} />
       </TableDialog>
       : null,

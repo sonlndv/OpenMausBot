@@ -525,7 +525,7 @@ export function AttachmentGallery({ images = [], files = [], originals, message,
               ? <span key={`${message.threadId}:${message.messageId}:${item.key}`} className="contents" {...reveal.targetProps(item.source)}><AudioAttachment file={item.file} message={message} /></span>
               : item.kind === "file" && <span key={item.key} className="contents" {...reveal.targetProps(item.source)}><AttachedFileChip file={item.file} linked={item.file.linked} message={message} compact />{message && edits.has(item.file.path) && <WhatChangedButton path={item.file.path} name={item.file.name} message={message} source={edits.get(item.file.path)!} compact />}</span>)}
             {items.length > limit && (
-              <button type="button" onClick={() => setExpanded(!expanded)} aria-expanded={expanded} className="inline-flex h-7 items-center rounded-full px-2.5 text-[13px] leading-none text-ink-secondary transition-colors hover:bg-ink/[0.06] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus">
+              <button type="button" onClick={() => setExpanded(!expanded)} aria-expanded={expanded} className="inline-flex h-7 items-center rounded-full px-2.5 text-[13px] leading-none text-ink-secondary transition-colors hover:bg-ink/[0.06] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus touch:min-h-11">
                 {expanded ? t("attach.showLess") : t("attach.moreCount", { count: items.length - limit })}
               </button>
             )}
@@ -553,11 +553,11 @@ export function AttachmentGallery({ images = [], files = [], originals, message,
         <div className="flex flex-col items-start gap-1.5">
           {documents.map((item) => item.kind === "audio" && message
             ? <span key={`${message.threadId}:${message.messageId}:${item.key}`} className="contents" {...reveal.targetProps(item.source)}><AudioAttachment file={item.file} message={message} /></span>
-            : item.kind === "file" && <span key={item.key} className={message && edits.has(item.file.path) ? "flex max-w-full items-center gap-1" : "contents"} {...reveal.targetProps(item.source)}><AttachedFileChip file={item.file} linked={item.file.linked} message={message} className="max-w-none rounded-xl border-hairline/25 bg-transparent" />{message && edits.has(item.file.path) && <WhatChangedButton path={item.file.path} name={item.file.name} message={message} source={edits.get(item.file.path)!} />}</span>)}
+            : item.kind === "file" && <span key={item.key} className={message && edits.has(item.file.path) ? "flex max-w-full flex-wrap items-center gap-1" : "contents"} {...reveal.targetProps(item.source)}><AttachedFileChip file={item.file} linked={item.file.linked} message={message} className="max-w-full rounded-xl border-hairline/25 bg-transparent" />{message && edits.has(item.file.path) && <WhatChangedButton path={item.file.path} name={item.file.name} message={message} source={edits.get(item.file.path)!} />}</span>)}
         </div>
       )}
       {items.length > limit && (
-        <button type="button" onClick={() => setExpanded(!expanded)} aria-expanded={expanded} className="flex min-h-8 items-center gap-1 rounded-lg px-1 py-1 text-[11px] text-ink-secondary transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60">
+        <button type="button" onClick={() => setExpanded(!expanded)} aria-expanded={expanded} className="flex min-h-8 items-center gap-1 rounded-lg px-1 py-1 text-[11px] text-ink-secondary transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 touch:min-h-11">
           {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           {expanded ? t("attach.showLess") : t("attach.showMore", { count: items.length - limit })}
         </button>

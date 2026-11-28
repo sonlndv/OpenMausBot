@@ -399,35 +399,37 @@ function LocalFileLink({ filePath, shownPath, shownName, name, source, children,
   const pathTitle = preview.opens ? preview.label : revealOnClick ? t("attach.showInFolder") : t("chat.file.saveCopy");
 
   return (
-    <span dir="ltr" className="inline-flex flex-wrap items-center gap-x-1.5 [unicode-bidi:isolate]" {...revealMenu.targetProps(isPlaceId(message?.threadId) ? undefined : source)}>
+    <span dir="ltr" className="inline-flex max-w-full flex-wrap items-center gap-x-1.5 [unicode-bidi:isolate]" {...revealMenu.targetProps(isPlaceId(message?.threadId) ? undefined : source)}>
       {revealMenu.menu}
-      {preview.opens
-        ? <SaveIconButton name={shownName} save={save} retryable={save.retryable} />
-        : <FilePreviewButton path={filePath} shownPath={shownPath} name={shownName} message={message} />}
-      <button
-        type="button"
-        onClick={(event) => void pathAction(event)}
-        disabled={!preview.opens && (save.state === "saving" || probing)}
-        title={pathTitle}
-        className="inline-flex items-center gap-1 break-words text-start text-accent underline decoration-accent/40 hover:decoration-accent disabled:cursor-wait"
-      >
-        {children}
-        {preview.opens ? (
-          <Eye size={12} className="shrink-0" aria-hidden="true" />
-        ) : probing ? (
-          <LoaderCircle size={12} className="shrink-0 animate-spin" aria-hidden="true" />
-        ) : revealOnClick ? (
-          <FolderOpen size={12} className="shrink-0" aria-hidden="true" />
-        ) : save.state === "saving" ? (
-          <LoaderCircle size={12} className="shrink-0 animate-spin" aria-hidden="true" />
-        ) : save.state === "saved" ? (
-          <Check size={12} className="shrink-0 text-success" aria-hidden="true" />
-        ) : save.state === "failed" ? (
-          save.retryable && <RotateCcw size={12} className="shrink-0" aria-hidden="true" />
-        ) : (
-          <Download size={12} className="shrink-0" aria-hidden="true" />
-        )}
-      </button>
+      <span className="file-action-row inline-flex max-w-full items-center gap-x-1.5">
+        {preview.opens
+          ? <SaveIconButton name={shownName} save={save} retryable={save.retryable} />
+          : <FilePreviewButton path={filePath} shownPath={shownPath} name={shownName} message={message} />}
+        <button
+          type="button"
+          onClick={(event) => void pathAction(event)}
+          disabled={!preview.opens && (save.state === "saving" || probing)}
+          title={pathTitle}
+          className="inline-flex min-w-0 items-center gap-1 text-start text-accent underline decoration-accent/40 hover:decoration-accent disabled:cursor-wait touch:min-h-11 touch:min-w-11"
+        >
+          <span className="min-w-0 [overflow-wrap:anywhere]">{children}</span>
+          {preview.opens ? (
+            <Eye size={12} className="shrink-0" aria-hidden="true" />
+          ) : probing ? (
+            <LoaderCircle size={12} className="shrink-0 animate-spin" aria-hidden="true" />
+          ) : revealOnClick ? (
+            <FolderOpen size={12} className="shrink-0" aria-hidden="true" />
+          ) : save.state === "saving" ? (
+            <LoaderCircle size={12} className="shrink-0 animate-spin" aria-hidden="true" />
+          ) : save.state === "saved" ? (
+            <Check size={12} className="shrink-0 text-success" aria-hidden="true" />
+          ) : save.state === "failed" ? (
+            save.retryable && <RotateCcw size={12} className="shrink-0" aria-hidden="true" />
+          ) : (
+            <Download size={12} className="shrink-0" aria-hidden="true" />
+          )}
+        </button>
+      </span>
       {revealProblem && <span role="alert" className="text-[12px] text-danger">{revealProblem}</span>}
       {label && (
         <span

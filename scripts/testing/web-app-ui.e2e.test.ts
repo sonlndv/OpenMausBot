@@ -57,18 +57,24 @@ async function connect(url: string) {
   try {
     const tools = await ensureUiBrowser();
     if (!tools.chrome) throw new Error("This recipe needs the pinned Chrome for Testing");
-    fixture = await launchVerificationServer({}, undefined, undefined, undefined, undefined, undefined, [], undefined, build);
+    fixture = await launchVerificationServer({ FAKE_CODEX_MODE: "happy", FAKE_CODEX_CONTEXT_TOKENS: "252960", FAKE_CODEX_CONTEXT_TOKENS_AFTER_COMPACT: "40000" },
+      undefined, undefined, undefined, undefined, undefined, ["codex"], undefined, build);
     const { url, dataDir, logPath } = fixture.info;
+    mkdirSync(join(dataDir, ".codex"), { recursive: true });
+    writeFileSync(join(dataDir, ".codex", "auth.json"), JSON.stringify({ auth_mode: "chatgpt", tokens: { account_id: "pwa-fixture", access_token: "fixture" } }));
     const { bot } = await runControlOmb(["new-bot", "--name", "Pepper", "--url", url]) as { bot: { id: string; activeTaskId: string } };
     const api = fixtureApi(url, { headers: { origin: url } });
     const starter = (await api("GET", "/api/bots")).bots.find((other: { id: string }) => other.id !== bot.id);
     if (starter) await api("PATCH", `/api/bots/${starter.id}`, { welcomed: true });
     const title = "Field notes for the next site visit and the equipment checklist";
+    const models = await runControlOmb(["models", "--url", url]) as { instances: Array<{ instanceId: string; models: { options: { id: string }[] } }> };
+    const model = models.instances.find(instance => instance.instanceId === "codex")!.models.options[0].id;
+    await api("PATCH", `/api/bots/${bot.id}/tasks/${bot.activeTaskId}`, { title: "Ideas for planning our next field research session", modelSelection: { instanceId: "codex", model }, requireAvailableModel: true });
     const side = (await api("POST", `/api/bots/${bot.id}/tasks`, { title })).task.threadId;
     await api("POST", `/api/bots/${bot.id}/tasks/${bot.activeTaskId}`, {});
     const profile = join(dataDir, "chrome");
     mkdirSync(profile, { recursive: true });
-    chrome = spawn(tools.chrome, ["--headless=new", "--no-sandbox", "--no-first-run", "--no-default-browser-check",
+    chrome = spawn(tools.chrome, ["--headless=new", "--window-size=1366,1200", "--no-sandbox", "--no-first-run", "--no-default-browser-check",
       "--disable-background-networking", "--password-store=basic", "--use-mock-keychain", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "about:blank"], {
       env: { PATH: process.env.PATH, HOME: dataDir, USERPROFILE: dataDir, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}) },
       stdio: "ignore",
@@ -112,8 +118,10 @@ async function connect(url: string) {
     const sheet = `document.querySelector('[role="dialog"]')`;
     const tap = async (expression: string) => {
       const point = `(() => {const e=${expression}; if (!e) return null; const r=e.getBoundingClientRect(), x=r.x+r.width/2,y=r.y+r.height/2; return e.contains(document.elementFromPoint(x,y)) ? {x,y} : null})()`;
-      await expect.poll(() => evaluate(point)).toBeTruthy();
-      await request("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [await evaluate(point)] });
+      const steady = `(async()=>{let previous,frames=0;for(let i=0;i<20;i++){await new Promise(requestAnimationFrame);const p=${point};frames=p&&previous&&p.x===previous.x&&p.y===previous.y?frames+1:0;if(frames===3)return p;previous=p}return null})()`;
+      let target: { x: number; y: number } | null = null;
+      await expect.poll(async () => (target = await evaluate(steady)), { message: `Touch target is moving, obscured or offscreen: ${expression}` }).toBeTruthy();
+      await request("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [target] });
       await request("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     };
     await tap(threads);
@@ -190,15 +198,110 @@ async function connect(url: string) {
     expect(await evaluate(viewport)).toContain("viewport-fit=cover");
     await request("Emulation.setSafeAreaInsetsOverride", { insets: { top: 0, right: 0, bottom: 0, left: 0 } });
     await request("Emulation.setUserAgentOverride", { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 Version/26.0 Safari/605.1.15" });
-    await request("Page.addScriptToEvaluateOnNewDocument", { source: "Object.defineProperty(navigator, 'standalone', {value: true})" });
-    await request("Page.reload");
-    await expect.poll(() => evaluate("navigator.standalone && document.querySelector('[data-sidebar]') !== null")).toBe(true);
-    expect(await evaluate(viewport)).not.toContain("viewport-fit=cover");
-    for (const [width, height] of [[390, 844], [507, 1024], [1024, 768], [844, 390]]) {
-      await request("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true });
-      await expect.poll(() => evaluate(`${sidebarBox}.top`)).toBeGreaterThanOrEqual(12);
-      if (width < 768) expect(await evaluate(`${drawerButton}.getBoundingClientRect().top`)).toBeGreaterThanOrEqual(12);
+    await request("Page.addScriptToEvaluateOnNewDocument", { source: "Object.defineProperty(navigator,'standalone',{value:true});localStorage.setItem('omb-skin','midnight');for(const key of ['omb-simple-mode-prompt','boat-credit-2026-11','github-star-dismissed'])localStorage.setItem(key,'1')" });
+    await request("Emulation.setEmulatedMedia", { features: [{ name: "display-mode", value: "standalone" }] });
+    const warning = `document.querySelector('[data-testid="context-warning"]')`;
+    const more = `document.querySelector('[data-chathead-controls] button[aria-label="More"]')`;
+    const activeInput = `Array.from(document.querySelectorAll('textarea[aria-label^="Message"]')).find(e=>e.getBoundingClientRect().width)`;
+    const headerFrame = `(() => {
+      const elements = [${drawerButton},${threads},${more},${warning}].filter(e=>e?.getBoundingClientRect().width);
+      const title = ${threads}?.querySelector('[data-chathead-conversation]');
+      return { width: innerWidth, rootTop: parseFloat(getComputedStyle(document.getElementById('root')).paddingTop),
+        boxes: elements.map(e=>{const r=e.getBoundingClientRect();return [r.left,r.top,r.right,r.bottom]}),
+        titleWidth: title?.clientWidth, singleLine: title && title.scrollHeight <= parseFloat(getComputedStyle(title).lineHeight) + 1,
+        targets: elements.map(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}) };
+    })()`;
+    const capture = async (name: string) => {
+      const screenshot = await request("Page.captureScreenshot", { format: "png" });
+      writeFileSync(`${logPath}.${name}.png`, Buffer.from(screenshot.data, "base64"));
+    };
+    await api("PATCH", "/api/config", { features: { threadTabs: true } });
+    for (const mode of ["simple", "advanced"]) {
+      await evaluate(`localStorage.setItem('omb-advanced-mode','${mode === "simple" ? "0" : "1"}')`);
+      await request("Page.reload");
+      await expect.poll(() => evaluate(`navigator.standalone && ${warning}?.textContent.includes('93%')`), { timeout: 15000 }).toBe(true);
+      expect(await evaluate(viewport)).not.toContain("viewport-fit=cover");
+      await evaluate(`(()=>{
+        const events=[], frames=[];
+        for(const type of ['touchstart','touchend']) document.addEventListener(type,e=>events.push({type,t:e.timeStamp,name:e.target.closest('button,[role=tab],[role=option]')?.textContent?.slice(0,80)}),{passive:true});
+        window.pwaJourney={events,frames}; function record(t){frames.push({t,...${headerFrame}});requestAnimationFrame(record)}requestAnimationFrame(record);
+      })()`);
+      for (const [width, height] of [[390, 844], [320, 568], [507, 1024], [820, 1180], [1180, 820], [844, 390], [390, 844]]) {
+        await request("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true });
+        if (width < 768) await expect.poll(() => evaluate(`${sidebarBox}.right`)).toBeLessThanOrEqual(0);
+        if (width >= 768) await expect.poll(() => evaluate(`${sidebarBox}.width`)).toBeLessThan(width / 2);
+        await expect.poll(() => evaluate(`innerWidth===${width} && !!(${threads})===${width < 768}`)).toBe(true);
+        const tag = `pwa-${mode}-${width}x${height}`;
+        await capture(tag);
+        const frames = await evaluate(`(async()=>{const frames=[];for(let n=0;n<6;n++){const tick=Promise.withResolvers();requestAnimationFrame(tick.resolve);await tick.promise;frames.push(${headerFrame})}return frames})()`);
+        writeFileSync(`${logPath}.${tag}.json`, JSON.stringify(frames));
+        for (const g of frames) {
+          expect(g.rootTop, tag).toBe(0);
+          expect(g.boxes.every(([l,t,r,b]:number[]) => l >= 0 && t >= 0 && r <= width && b <= height), tag).toBe(true);
+          if (width < 768) {
+            expect(g.titleWidth, tag).toBeGreaterThan(64);
+            expect(g.singleLine, tag).toBe(true);
+            const [bots, threads, more] = g.boxes;
+            for (const box of [threads, more]) {
+              expect(box[1], tag).toBeCloseTo(bots[1], 0);
+              expect(box[3], tag).toBeCloseTo(bots[3], 0);
+            }
+            expect(g.targets.every(Boolean), tag).toBe(true);
+          }
+        }
+        if (width >= 768) {
+          await tap(`document.querySelector('[data-tab-id="${side}"] [data-tab-label]')`);
+          await expect.poll(() => evaluate(`document.querySelector('[data-tab-id="${side}"]').ariaSelected`)).toBe("true");
+          await tap(`document.querySelector('[data-tab-id="${bot.activeTaskId}"] [data-tab-label]')`);
+          await expect.poll(() => evaluate(`document.querySelector('[data-tab-id="${bot.activeTaskId}"]').ariaSelected`)).toBe("true");
+          await capture(`${tag}-returned`);
+          await expect.poll(() => evaluate(`${warning}?.textContent`)).toContain("93%");
+          await tap(`document.querySelector('textarea[aria-label^="Message"]')`);
+          await expect.poll(() => evaluate(`document.activeElement.tagName`)).toBe("TEXTAREA");
+          continue;
+        }
+        if (width === 507) {
+          await tap(activeInput);
+          await request("Input.dispatchKeyEvent", { type: "keyDown", key: "a", code: "KeyA", modifiers: 2, commands: ["selectAll"] });
+          await request("Input.dispatchKeyEvent", { type: "keyUp", key: "a", code: "KeyA", modifiers: 2 });
+          await request("Input.insertText", { text: `${mode} Split View draft` });
+          await request("Emulation.setDeviceMetricsOverride", { width, height: 460, deviceScaleFactor: 1, mobile: true });
+          await expect.poll(() => evaluate(`innerHeight===460 && ${activeInput}.getBoundingClientRect().bottom<=460`)).toBe(true);
+          await capture(`${tag}-editing`);
+          await request("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true });
+        }
+        await tap(drawerButton);
+        await expect.poll(() => evaluate(`${drawerButton}.ariaExpanded`)).toBe("true");
+        await expect.poll(() => evaluate(`${sidebarBox}.right`)).toBe(width);
+        await tap(`document.querySelector('[data-sidebar-top-buttons] button[aria-label="Close"]')`);
+        await expect.poll(() => evaluate(`${drawerButton}.ariaExpanded`)).toBe("false");
+        await expect.poll(() => evaluate(`${sidebarBox}.right`)).toBeLessThanOrEqual(0);
+        await tap(threads);
+        await capture(`${tag}-threads`);
+        await tap(taskButton(side));
+        await expect.poll(() => evaluate(`${threads}?.textContent`)).toContain(title);
+        if (width === 507) await expect.poll(() => evaluate(`${activeInput}?.value`)).toBe("");
+        await expect.poll(() => evaluate(`!(${warning})`)).toBe(true);
+        await tap(threads);
+        await tap(taskButton(bot.activeTaskId));
+        await expect.poll(() => evaluate(`${warning}?.textContent`)).toContain("93%");
+        if (width === 507) await expect.poll(() => evaluate(`${activeInput}?.value`)).toBe(`${mode} Split View draft`);
+        await tap(more);
+        await expect.poll(() => evaluate(`${more}.ariaExpanded`)).toBe("true");
+        await capture(`${tag}-more`);
+        const menu = `document.getElementById(${more}.getAttribute('aria-controls'))`;
+        await expect.poll(() => evaluate(`${menu}.getBoundingClientRect().left`)).toBeGreaterThan(4);
+        await request("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: 3, y: height / 2 }] });
+        await request("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        await expect.poll(() => evaluate(`${more}.ariaExpanded`)).toBe("false");
+      }
+      writeFileSync(`${logPath}.pwa-${mode}-journey.json`, JSON.stringify(await evaluate("window.pwaJourney")));
     }
+    await tap(`${warning}.querySelector('button')`);
+    await expect.poll(() => evaluate(`!(${warning})`), { timeout: 15000 }).toBe(true);
+    await expect.poll(async () => (await api("GET", `/api/threads/${bot.activeTaskId}/messages`)).messages
+      .filter((m: { kind?: string; engineCompaction?: unknown }) => m.kind === "compaction" && m.engineCompaction), { timeout: 15000 }).toHaveLength(1);
+    await capture("pwa-after-compact");
     await request("Emulation.setSafeAreaInsetsOverride", { insets: { top: 44 } });
     await expect.poll(() => evaluate("getComputedStyle(document.getElementById('root')).paddingTop")).toBe("44px");
     writeFileSync(`${logPath}.web-app.json`, JSON.stringify({ installability, platform: process.platform }, null, 2));

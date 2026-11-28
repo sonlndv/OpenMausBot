@@ -21,10 +21,10 @@ export function WhatChangedButton({ path, name, message, source, compact = false
   };
   return <>
     <button ref={trigger} type="button" onClick={show} aria-label={t("changes.openAria", { name })} title={t("changes.openAria", { name })}
-      className={cn("inline-flex shrink-0 items-center rounded-full px-2.5 leading-none text-ink-secondary transition-colors hover:bg-ink/[0.06] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus", compact ? "h-7 text-[13px]" : "h-8 text-[12px]")}>
+      className={cn("inline-flex shrink-0 items-center rounded-full px-2.5 leading-none text-ink-secondary transition-colors hover:bg-ink/[0.06] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus touch:min-h-11", compact ? "h-7 text-[13px]" : "h-8 text-[12px]")}>
       {t("changes.open")}
     </button>
-    {open && <TableDialog title={t("changes.title", { name })} returnFocus={trigger.current} onClose={() => setOpen(false)}>
+    {open && <TableDialog className="file-preview-dialog" title={t("changes.title", { name })} returnFocus={trigger.current} onClose={() => setOpen(false)}>
       <Suspense fallback={<div role="status" className="flex items-center justify-center gap-2 p-12 text-sm text-ink-secondary"><LoaderCircle size={16} className="animate-spin" />{t("changes.loading")}</div>}>
         <WhatChangedContent edited={{ path, name, message }} original={{ path: source.path, name: source.name, message: { threadId: message.threadId, messageId: source.messageId } }} />
       </Suspense>

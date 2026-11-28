@@ -3,12 +3,11 @@
 The HTML links a standalone web manifest and existing-brand PNG icons. The
 static server serves the manifest with `application/manifest+json`. Its start
 address, scope and identity stay at the workspace root with no pairing tokens.
-On iPhone and iPad, the Home Screen app uses the system viewport and leaves a
-solid strip above the chat and sidebar controls to keep them out of the
-[WebKit status-bar fade](https://bugs.webkit.org/show_bug.cgi?id=325807).
-The strip is 12–24 CSS pixels depending on viewport height; a larger reported
-safe-area inset takes its place. This also applies in iPad Split View and with
-a desktop user agent. Safari tabs and other clients keep the edge-to-edge viewport.
+On iPhone and iPad, qualify the installed Home Screen app first. It keeps
+WebKit's system viewport rather than drawing under the status bar. The app
+respects reported safe-area insets without adding an extra spacer when WebKit
+already reserves the space. Touch standalone windows keep an opaque chat header
+in portrait, landscape and iPad Split View.
 
 ## Isolated browser checks
 
@@ -17,6 +16,7 @@ pnpm exec vitest run scripts/testing/web-app-assets.test.ts
 pnpm exec vitest run server/index.test.ts -t 'serves packaged UI'
 pnpm exec vite build
 OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/web-app-ui.e2e.test.ts
+OMB_CDP_CHROME=/usr/bin/chromium OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/touch-file-actions.e2e.test.ts
 ```
 
 The UI recipe launches a disposable verification server with fake engines and
@@ -28,6 +28,12 @@ without duplicate messages, and the absence of a service worker or offline
 cache. Screenshots and browser results are saved beside the fixture server log.
 `OMB_WEB_APP_BUILD` can select an already-built UI directory. Neither the user's
 browser profile nor live OpenMausBot data is used.
+
+The Home Screen layout check records animation-frame geometry and touch events
+in both modes. It switches between a quiet thread and one at 93% context, opens
+Bots, Threads and More, resizes a draft, and invokes Compact now. The file
+check opens, closes and saves a long-named upload, linked file and delivered
+file. Both use the production renderer, not a live workspace or an iOS simulator.
 
 These automated checks do not prove physical phone installation. Follow the
 [phone installation guide](../phone-web-app.md) in a disposable workspace for
