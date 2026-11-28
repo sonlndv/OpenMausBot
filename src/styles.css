@@ -2141,7 +2141,15 @@ body {
     background-color: color-mix(in srgb, var(--color-card), var(--color-ink) 12%);
   }
   .glass-scroller[data-top-fade] {
-    --top-fade: 14px;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  [data-look="chat"] > [data-glass-frame] > [data-glass-bar="top"] {
+    background: var(--color-app);
+    pointer-events: auto;
+  }
+  [data-look="chat"] > [data-glass-frame] > [data-glass-bar="top"]::before {
+    content: none;
   }
 }
 /* A room's feed of threads: its header is plain words, so nothing that scrolls under it shows through. Rows fade in over

@@ -3,8 +3,10 @@
 The HTML links a standalone web manifest and existing-brand PNG icons. The
 static server serves the manifest with `application/manifest+json`. Its start
 address, scope and identity stay at the workspace root with no pairing tokens.
-Safe-area padding keeps the existing app layout away from the notch and home
-indicator; desktop browsers report zero insets.
+An iPhone launched from its Home Screen uses the system viewport instead of
+extending the page behind the clock. This avoids opting into the status-bar
+fade reported in [WebKit 325807](https://bugs.webkit.org/show_bug.cgi?id=325807).
+Other clients keep the edge-to-edge viewport and safe-area padding.
 
 ## Isolated browser checks
 

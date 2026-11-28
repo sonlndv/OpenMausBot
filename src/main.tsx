@@ -23,6 +23,12 @@ import { startDesktopLaunchMarks } from "./lib/launch-marks";
 import { serverFetch } from "./lib/relay-server";
 import "./styles.css";
 
+// WebKit draws a status-bar scrim over viewport-fit=cover in installed iPhone apps: https://bugs.webkit.org/show_bug.cgi?id=325807
+if (!(/iPhone/.test(navigator.userAgent) && "standalone" in navigator && navigator.standalone === true)) {
+  const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+  if (viewport) viewport.content += ", viewport-fit=cover";
+}
+
 // Before first paint; settleInterfaceMode must run before applySkin writes omb-skin.
 settleInterfaceMode();
 applySkinChoice(readSkinChoice());

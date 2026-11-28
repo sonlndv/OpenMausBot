@@ -38,7 +38,8 @@ describe("phone web app installation assets", () => {
     const png = readFileSync(new URL(`public${href}`, root));
     expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([180, 180]);
     const viewport = head.querySelector('meta[name="viewport"]')?.getAttribute("content");
-    expect(viewport).toContain("viewport-fit=cover");
+    expect(viewport).toContain("width=device-width");
+    expect(viewport).not.toContain("viewport-fit=cover");
     expect(viewport).not.toMatch(/user-scalable=no|maximum-scale=1/);
   });
 });
