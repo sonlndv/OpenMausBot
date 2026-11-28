@@ -41,6 +41,15 @@ describe("what a bot's row or tile is marked for", () => {
 describe("a click on a bot's row or tile", () => {
   const work = { threadId: "work", unread: true };
 
+  it("resumes a bot from the narrow list instead of switching it to its main or unread thread", () => {
+    vi.stubGlobal("window", { matchMedia: () => ({ matches: false }) });
+    try {
+      expect(opened(chief([work, { threadId: "notes" }], "notes"), false)).toEqual([{ type: "select", id: "cos" }]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("lands on the thread the dot is about, by the switch alone so the thread left behind stays unread", () => {
     expect(opened(chief([work]), false)).toEqual([{ type: "switchTask", botId: "cos", threadId: "work" }]);
   });

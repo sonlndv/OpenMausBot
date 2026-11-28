@@ -1,6 +1,5 @@
 import type { Bot, Task } from "@/state/store";
-import type { NewChat } from "@/state/new-chat";
-import { isNewChatThread, newChatThreadId } from "@/state/new-chat";
+import { isNewChatThread } from "@/state/new-chat";
 import { isArchived, isSnoozed, isWorking, orderedThreadList } from "./SidebarThreadRow";
 
 /** The factory title a thread starts with, shown localized. */
@@ -61,10 +60,6 @@ export function sameTabs(a: readonly ThreadTab[], b: readonly ThreadTab[]): bool
   return a === b || (a.length === b.length && a.every((tab, i) => sameTab(tab, b[i]!)));
 }
 
-/** Whether a bot has two threads or more to switch between, its blank New thread chat counted: Simple's pill switcher
- * shows for these. The tab strip shows whenever Thread tabs is on, see stripTabs. */
-export const showsTabs = (tabs: readonly ThreadTab[]): boolean => tabs.length > 1;
-
 /** The thread tab strip's tabs: the bot's threads, and the open one before it has a thread row of its own, so a bot
  * with one thread, or none yet, still gets a tab to sit on beside the strip's +. */
 export function stripTabs(bot: TabsBot): ThreadTab[] {
@@ -85,9 +80,3 @@ export function neighbourOf(tabs: readonly ThreadTab[], threadId: string): strin
   return (tabs[at + 1] ?? tabs[at - 1])?.threadId;
 }
 
-/** Whether this bot has two threads or more in the chat, its blank New thread chat counted, as showsTabs. */
-export function botShowsTabs(bot: TabsBot | undefined, newChat: NewChat | null | undefined): boolean {
-  if (!bot) return false;
-  const shown = newChat?.botId === bot.id ? { ...bot, threadId: newChatThreadId(bot.id), switchingTo: undefined } : bot;
-  return showsTabs(threadTabs(shown));
-}

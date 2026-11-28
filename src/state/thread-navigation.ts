@@ -78,14 +78,18 @@ export function markedThread(bot: Pick<NotificationThreadOwner, "threadId" | "ma
   return marked[0]?.task.threadId ?? null;
 }
 
-/** A click on a bot's row or tile opens the thread its mark is about; with no mark, or with that thread already on screen,
- * the bot as ever. Every other way into a bot is `openBot`. On a team a bot's row is the person's own chat. */
+/** A narrow bot list resumes the bot's current conversation. An inline row opens the thread its activity
+ * mark refers to. Team navigation in both layouts respects the selected side of the workspace. */
 export function openBotRow(
   dispatch: (action: Action) => void,
   bot: Pick<NotificationThreadOwner, "id" | "threadId" | "mainThreadId" | "tasks"> & { yourAccess?: string },
   threadsShown: boolean,
   onScreen: boolean,
 ) {
+  if (!sidebarInlineNow() && !teamChats()) {
+    dispatch({ type: "select", id: bot.id });
+    return;
+  }
   const marked = teamChats() ? null : markedThread(bot, threadsShown);
   if (!marked || marked === botOpensTo(bot, threadsShown) || (onScreen && marked === bot.threadId)) openBot(dispatch, bot, threadsShown);
   else openBotThread(dispatch, bot, marked, threadsShown);

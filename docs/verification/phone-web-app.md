@@ -3,10 +3,12 @@
 The HTML links a standalone web manifest and existing-brand PNG icons. The
 static server serves the manifest with `application/manifest+json`. Its start
 address, scope and identity stay at the workspace root with no pairing tokens.
-An iPhone launched from its Home Screen uses the system viewport instead of
-extending the page behind the clock. This avoids opting into the status-bar
-fade reported in [WebKit 325807](https://bugs.webkit.org/show_bug.cgi?id=325807).
-Other clients keep the edge-to-edge viewport and safe-area padding.
+On iPhone and iPad, the Home Screen app uses the system viewport and leaves a
+solid strip above the chat and sidebar controls to keep them out of the
+[WebKit status-bar fade](https://bugs.webkit.org/show_bug.cgi?id=325807).
+The strip is 12–24 CSS pixels depending on viewport height; a larger reported
+safe-area inset takes its place. This also applies in iPad Split View and with
+a desktop user agent. Safari tabs and other clients keep the edge-to-edge viewport.
 
 ## Isolated browser checks
 
@@ -31,9 +33,12 @@ These automated checks do not prove physical phone installation. Follow the
 [phone installation guide](../phone-web-app.md) in a disposable workspace for
 device qualification:
 
-- iPhone Safari: Add to Home Screen, verify the icon and name, then launch a
-  standalone window without Safari's address bar. Confirm that chat and Settings
-  stay clear of the notch and home indicator in both orientations.
+- iPhone and iPad Safari: Add to Home Screen, verify the icon and name, then
+  launch without Safari's address bar. Check that the top of the chat controls
+  and the first row of the open bot list are sharp and tappable, in portrait
+  and landscape. On iPad repeat in full width and narrow Split View with
+  Request Desktop Website enabled. Check Settings and the home indicator too.
+  A Chromium layout check cannot verify the iOS compositor's fade.
 - Android Chrome: Install app, launch from its icon and verify the same layout.
 - Pair the installed window if needed; send a fixture message, quit and reopen,
   then confirm one stored message and its reply. Check that an unpaired or

@@ -11,7 +11,7 @@ import type { Bot } from "@/state/store";
 import { useStoreDispatch, useStoreSelector } from "@/state/store-select";
 import { BotAvatar } from "./Avatar";
 import { reducedMotion } from "./MenuMotion";
-import { botShowsTabs, neighbourOf, openTabId, sameTabs, stripTabs, type ThreadTab } from "./thread-tabs";
+import { neighbourOf, openTabId, sameTabs, stripTabs, type ThreadTab } from "./thread-tabs";
 import { useSlidingIndicator, useTabMotion } from "./thread-tab-motion";
 import { UndoToast, useUndoToast } from "./UndoToast";
 
@@ -25,12 +25,6 @@ export function useThreadTabsShown(): boolean {
   return useFeature("threadTabs");
 }
 
-/** Whether this bot has two threads or more to switch between, its blank New thread chat counted: Simple's pill
- * switcher shows for these, whether or not Thread tabs is on. */
-export function useBotHasThreads(botId: string): boolean {
-  return useStoreSelector((state) => botShowsTabs(state.bots.find((bot) => bot.id === botId), state.newChat));
-}
-
 /** A bot's threads as tabs in the chat header, with a + for a new one, once Thread tabs is on. */
 export function HeaderThreadTabs({ bot }: { bot: Bot }) {
   const on = useFeature("threadTabs");
@@ -38,14 +32,13 @@ export function HeaderThreadTabs({ bot }: { bot: Bot }) {
   return <Strip bot={bot} tabs={stripTabs(bot)} active={openTabId(bot)} />;
 }
 
-/** The mask that fades a sideways-scrolling row's edges where more of it is hidden, none when it all fits. */
-export function edgeFade(element: HTMLElement, fade = FADE): string | undefined {
+function edgeFade(element: HTMLElement): string | undefined {
   const room = element.scrollWidth - element.clientWidth;
   if (room <= 1) return undefined;
   const rtl = getComputedStyle(element).direction === "rtl";
   const hiddenLeft = rtl ? room + element.scrollLeft : element.scrollLeft;
-  const left = hiddenLeft > 1 ? "transparent 0, black " + fade + "px" : "black 0";
-  const right = room - hiddenLeft > 1 ? "black calc(100% - " + fade + "px), transparent 100%" : "black 100%";
+  const left = hiddenLeft > 1 ? `transparent 0, black ${FADE}px` : "black 0";
+  const right = room - hiddenLeft > 1 ? `black calc(100% - ${FADE}px), transparent 100%` : "black 100%";
   return `linear-gradient(to right, ${left}, ${right})`;
 }
 

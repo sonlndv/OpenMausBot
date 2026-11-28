@@ -23,8 +23,10 @@ import { startDesktopLaunchMarks } from "./lib/launch-marks";
 import { serverFetch } from "./lib/relay-server";
 import "./styles.css";
 
-// WebKit draws a status-bar scrim over viewport-fit=cover in installed iPhone apps: https://bugs.webkit.org/show_bug.cgi?id=325807
-if (!(/iPhone/.test(navigator.userAgent) && "standalone" in navigator && navigator.standalone === true)) {
+// WebKit's Home Screen flag also works when iPadOS sends a desktop user agent.
+if ("standalone" in navigator && navigator.standalone === true && navigator.maxTouchPoints > 0) {
+  document.documentElement.dataset.iosHomeScreen = "";
+} else {
   const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
   if (viewport) viewport.content += ", viewport-fit=cover";
 }

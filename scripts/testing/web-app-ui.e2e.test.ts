@@ -7,6 +7,7 @@ import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb, type VerificationServer } from "../control-omb.ts";
 import { waitForExit } from "../../server/testing/cleanup.ts";
 import { ensureUiBrowser } from "./control-omb-ui.ts";
+import { fixtureApi } from "./preview-fixture.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const enabled = process.env.OMB_UI_E2E === "1";
@@ -59,6 +60,12 @@ async function connect(url: string) {
     fixture = await launchVerificationServer({}, undefined, undefined, undefined, undefined, undefined, [], undefined, build);
     const { url, dataDir, logPath } = fixture.info;
     const { bot } = await runControlOmb(["new-bot", "--name", "Pepper", "--url", url]) as { bot: { id: string; activeTaskId: string } };
+    const api = fixtureApi(url, { headers: { origin: url } });
+    const starter = (await api("GET", "/api/bots")).bots.find((other: { id: string }) => other.id !== bot.id);
+    if (starter) await api("PATCH", `/api/bots/${starter.id}`, { welcomed: true });
+    const title = "Field notes for the next site visit and the equipment checklist";
+    const side = (await api("POST", `/api/bots/${bot.id}/tasks`, { title })).task.threadId;
+    await api("POST", `/api/bots/${bot.id}/tasks/${bot.activeTaskId}`, {});
     const profile = join(dataDir, "chrome");
     mkdirSync(profile, { recursive: true });
     chrome = spawn(tools.chrome, ["--headless=new", "--no-sandbox", "--no-first-run", "--no-default-browser-check",
@@ -80,6 +87,7 @@ async function connect(url: string) {
       return value.result.value;
     };
     await request("Page.enable");
+    await request("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
     await request("Page.addScriptToEvaluateOnNewDocument", { source: "localStorage.setItem('omb-analytics-opt-out','1');localStorage.setItem('omb-email-gate','skipped');localStorage.setItem('grok-move-2026-11','1');localStorage.setItem('teams-2026-11b','1');localStorage.setItem('modelgo-offer-2026-11','1');localStorage.setItem('whats-new-2026-11b','1');localStorage.setItem('whats-new-2026-11c','1');" });
     await request("Runtime.enable");
     await request("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
@@ -100,6 +108,31 @@ async function connect(url: string) {
     await evaluate(`${drawerButton}.click()`);
     await evaluate(`document.querySelector('[data-sidebar-top-buttons] button[aria-label="Close"]').click()`);
     await expect.poll(() => evaluate(`${drawerButton}.getAttribute("aria-expanded")`)).toBe("false");
+    const threads = `document.querySelector('[data-chathead-threads]')`;
+    const sheet = `document.querySelector('[role="dialog"]')`;
+    const tap = async (expression: string) => {
+      const point = `(() => {const e=${expression}; if (!e) return null; const r=e.getBoundingClientRect(), x=r.x+r.width/2,y=r.y+r.height/2; return e.contains(document.elementFromPoint(x,y)) ? {x,y} : null})()`;
+      await expect.poll(() => evaluate(point)).toBeTruthy();
+      await request("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [await evaluate(point)] });
+      await request("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    };
+    await tap(threads);
+    const taskButton = (id: string) => `${sheet}?.querySelector('[data-thread-chip="${id}"]')`;
+    await expect.poll(() => evaluate(`${taskButton(side)}?.textContent`)).toContain(title);
+    const menuBounds = await evaluate(`(() => {
+      const menu = ${sheet}.getBoundingClientRect(), button = ${threads}.getBoundingClientRect();
+      return { gap: menu.top - button.bottom, left: menu.left, right: innerWidth - menu.right };
+    })()`);
+    expect(menuBounds.gap).toBeGreaterThanOrEqual(0);
+    expect(menuBounds.gap).toBeLessThanOrEqual(8);
+    expect(Math.min(menuBounds.left, menuBounds.right)).toBeGreaterThanOrEqual(8);
+    const threadsShot = await request("Page.captureScreenshot", { format: "png" });
+    writeFileSync(`${logPath}.threads.png`, Buffer.from(threadsShot.data, "base64"));
+    await tap(taskButton(side));
+    await expect.poll(() => evaluate(`${threads}?.textContent`)).toContain(title);
+    await tap(threads);
+    await tap(taskButton(bot.activeTaskId));
+    await expect.poll(() => evaluate(`${threads}?.textContent.includes(${JSON.stringify(title)})`)).toBe(false);
     // iOS automatically zooms small form text on focus, leaving a standalone
     // window shifted after the keyboard closes. Keep the mention mirror aligned.
     const touchText = await evaluate(`(() => {
@@ -123,6 +156,8 @@ async function connect(url: string) {
       [844, 390, { top: 0, bottom: 21, left: 44, right: 44 }]] as const) {
       await request("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true });
       await request("Emulation.setSafeAreaInsetsOverride", { insets });
+      await expect.poll(() => evaluate(`[innerWidth, innerHeight, ...['Top','Right','Bottom','Left'].map(edge => parseFloat(getComputedStyle(document.getElementById('root'))['padding'+edge]))]`))
+        .toEqual([width, height, insets.top, insets.right, insets.bottom, insets.left]);
       if (width < 768) await expect.poll(() => evaluate(`${sidebarBox}.right`)).toBeLessThanOrEqual(insets.left);
       else await expect.poll(() => evaluate(`${sidebarBox}.width`)).toBeLessThan(100);
       const box = await evaluate(`(() => { const root=document.getElementById('root').getBoundingClientRect();
@@ -149,6 +184,23 @@ async function connect(url: string) {
     expect(messages.messages.filter((message: { role: string; text: string }) => message.role === "user" && message.text === "Phone web app fixture message")).toHaveLength(1);
     expect(await evaluate("caches.keys()" )).toEqual([]);
     expect(await evaluate("navigator.serviceWorker.getRegistrations().then(items=>items.length)")).toBe(0);
+    // The regular touch browser opts into cover. Simulate the WebKit launch
+    // signals on the same build, including iPadOS's desktop UA and zero inset.
+    const viewport = `document.querySelector('meta[name="viewport"]').content`;
+    expect(await evaluate(viewport)).toContain("viewport-fit=cover");
+    await request("Emulation.setSafeAreaInsetsOverride", { insets: { top: 0, right: 0, bottom: 0, left: 0 } });
+    await request("Emulation.setUserAgentOverride", { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 Version/26.0 Safari/605.1.15" });
+    await request("Page.addScriptToEvaluateOnNewDocument", { source: "Object.defineProperty(navigator, 'standalone', {value: true})" });
+    await request("Page.reload");
+    await expect.poll(() => evaluate("navigator.standalone && document.querySelector('[data-sidebar]') !== null")).toBe(true);
+    expect(await evaluate(viewport)).not.toContain("viewport-fit=cover");
+    for (const [width, height] of [[390, 844], [507, 1024], [1024, 768], [844, 390]]) {
+      await request("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true });
+      await expect.poll(() => evaluate(`${sidebarBox}.top`)).toBeGreaterThanOrEqual(12);
+      if (width < 768) expect(await evaluate(`${drawerButton}.getBoundingClientRect().top`)).toBeGreaterThanOrEqual(12);
+    }
+    await request("Emulation.setSafeAreaInsetsOverride", { insets: { top: 44 } });
+    await expect.poll(() => evaluate("getComputedStyle(document.getElementById('root')).paddingTop")).toBe("44px");
     writeFileSync(`${logPath}.web-app.json`, JSON.stringify({ installability, platform: process.platform }, null, 2));
     console.log(`Web app evidence: ${logPath}.web-app.json`);
   } finally {

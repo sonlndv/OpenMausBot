@@ -55,7 +55,7 @@ export function ChatActivityControls({ activity, botId, style, compact = false }
   const dispatch = useStoreDispatch();
   const [open, setOpen] = useState(false);
   if (compact) return <SidebarPopoverMenu ariaLabel={t("chat.automation.activity")} triggerTitle={t("chat.automation.activity")}
-    triggerClassName="ui-pill size-7 justify-center px-0" renderTrigger={() => <List size={16} aria-hidden="true" />}
+    triggerClassName="ui-pill size-7 justify-center px-0 max-md:size-10" renderTrigger={() => <List size={16} aria-hidden="true" />}
     items={[
       { key: "routines", label: t("chat.automation.showInChat"), toggle: activity.routines, trailing: activity.routines && <Check size={16} />, onSelect: activity.toggleRoutines },
       { key: "tools", label: t("chat.automation.showTools"), toggle: activity.tools, trailing: activity.tools && <Check size={16} />, onSelect: activity.toggleTools },

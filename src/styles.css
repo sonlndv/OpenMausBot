@@ -1434,6 +1434,13 @@ body,
     env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 
+/* Leave solid space above both the chat and sidebar in the system viewport.
+   A reported top inset already provides clearance; don't add it twice. */
+html[data-ios-home-screen] #root {
+  padding-top: max(env(safe-area-inset-top, 0px), clamp(12px, 3vh, 24px));
+  background-color: var(--color-app);
+}
+
 /* ────────────────────────────────────────────────────────────────────────
    FONTS
    An optional interface-font override, independent of the skin (see
@@ -2135,6 +2142,15 @@ body {
   --top-fade: 60px;
   -webkit-mask-image: linear-gradient(to bottom, transparent calc(var(--glass-top, 0px) - var(--top-fade)), #000 var(--glass-top, 0px));
   mask-image: linear-gradient(to bottom, transparent calc(var(--glass-top, 0px) - var(--top-fade)), #000 var(--glass-top, 0px));
+}
+.thread-dropdown {
+  --left-edge: max(8px, env(safe-area-inset-left));
+  --right-edge: max(8px, env(safe-area-inset-right));
+  --menu-width: min(22rem, calc(100% - var(--left-edge) - var(--right-edge)));
+  width: var(--menu-width);
+  left: clamp(var(--left-edge), calc(var(--thread-anchor-center) - var(--menu-width) / 2), calc(100% - var(--right-edge) - var(--menu-width)));
+  top: var(--thread-dropdown-top);
+  max-height: min(28rem, calc(100% - var(--thread-dropdown-top) - max(8px, env(safe-area-inset-bottom))));
 }
 @media (width < 48rem) {
   .phone-header-surface {

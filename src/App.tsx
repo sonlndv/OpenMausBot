@@ -1,7 +1,7 @@
 import { MAIN_PANE } from "@/state/pane-layout";
 import { narrowPanel, workspaceLayout } from "@/state/fork-panel";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, Loader2, Menu } from "lucide-react";
+import { ChevronLeft, Loader2 } from "lucide-react";
 import { CLOUD_LINK_SETTINGS, openBot, StoreProvider, useStore } from "@/state/store";
 import { nextShortcutBot, shortcutBots, shownBotIds } from "@/lib/sidebar-shortcut-order";
 import { useShowThreads } from "@/lib/thread-preferences";
@@ -436,10 +436,10 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
         aria-label={t("app.openBotList")}
         aria-expanded={drawerOpen}
         onClick={openDrawer}
-        className="phone-header-surface absolute left-3 top-3 z-30 rounded-md p-1.5 text-ink-secondary hover:bg-raised hover:text-ink max-md:flex max-md:size-10 max-md:items-center max-md:justify-center max-md:rounded-full max-md:border max-md:border-hairline max-md:p-0 max-md:text-ink md:hidden"
+        className="phone-header-surface absolute start-2 top-2.5 z-30 flex min-h-11 w-11 flex-col items-center justify-center rounded-xl text-ink hover:bg-raised md:hidden"
       >
-        <Menu size={18} className="max-md:hidden" />
-        <ChevronLeft size={20} aria-hidden="true" className="hidden max-md:block" />
+        <ChevronLeft size={16} aria-hidden="true" className="rtl:-scale-x-100" />
+        <span className="max-w-full truncate text-xs font-medium">{t("palette.bots")}</span>
       </button>}
       {drawerOpen && !calendarFocus && (
         <div

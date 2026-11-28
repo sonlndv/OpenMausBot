@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "@/state/store";
 import { newChatThreadId } from "@/state/new-chat";
-import { botShowsTabs, neighbourOf, showsTabs, stripTabs, threadTabs, type TabsBot } from "./thread-tabs";
+import { neighbourOf, stripTabs, threadTabs, type TabsBot } from "./thread-tabs";
 
 const task = (threadId: string, at: number, extra: Partial<Task> = {}): Task => ({ threadId, title: threadId, createdAt: at, lastThreadOrderAt: at, ...extra });
 
@@ -29,20 +29,11 @@ describe("thread tabs", () => {
     const tasks = [task("main", 1, { openedBy: lead }), task("steer", 3, { openedBy: lead }), task("gemini", 2, { openedBy: lead }), task("done", 4, { openedBy: lead, closedBy: lead })];
     const helper = bot(tasks, { threadId: "main", mainThreadId: "main" });
     expect(threadTabs(helper).map((tab) => tab.threadId)).toEqual(["steer", "gemini", "main"]);
-    expect(botShowsTabs(helper, null)).toBe(true);
   });
 
   it("keeps the main thread whoever opened it, even when another thread is on screen", () => {
     const tasks = [task("main", 1, { routineRunId: "r" }), task("other", 2)];
     expect(threadTabs(bot(tasks, { threadId: "other", mainThreadId: "main" })).map((tab) => tab.threadId)).toEqual(["other", "main"]);
-  });
-
-  it("shows the strip only for two threads or more, the blank New thread chat counted", () => {
-    const one = bot([task("only", 1)]);
-    expect(showsTabs(threadTabs(one))).toBe(false);
-    expect(botShowsTabs(one, null)).toBe(false);
-    expect(botShowsTabs(one, { session: 1, botId: "kiwi", held: [] })).toBe(true);
-    expect(botShowsTabs(one, { session: 1, botId: "other", held: [] })).toBe(false);
   });
 
   it("gives the strip a tab for a bot's one thread, with no close", () => {

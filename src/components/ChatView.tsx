@@ -742,8 +742,8 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
   const wrapPhoneHeader = phone && advanced && !paneTitle;
   const compactMenu = compactHeader && (!remoteClient || Boolean(paneTitle));
   const simpleHead = !advanced && !remoteClient;
-  const pillSwitcher = simpleHead && phone && !inForkPanel && !paneTitle;
-  const headTabs = useThreadTabsShown() && !inForkPanel && !paneTitle;
+  const pillSwitcher = phone && !remoteClient && !isPlaceId(bot.id) && !inForkPanel && !paneTitle;
+  const headTabs = useThreadTabsShown() && !pillSwitcher && !inForkPanel && !paneTitle;
   useTabsFrameOnRoot(headTabs ? (simpleHead ? "simple" : "advanced") : undefined);
   const canWrite = useCanWriteIn(bot.threadId, bot.yourAccess), mayWrite = canWrite !== false;
   const placed = isPlaceId(bot.id);
@@ -912,9 +912,9 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
       {/* z-[25]: above the room set-up card (z-20), below the CallOverlay (z-30). */}
       <GlassBar edge="top" fade={!remoteClient} data-chathead-float={simpleHead ? "" : undefined} className="z-[25]">
       <div {...headerDragProps} data-look="chat-header" data-chathead-tabs={headTabs ? (simpleHead ? "simple" : "advanced") : undefined} className={chatHeaderContainer(Boolean(paneTitle), simpleHead)}>
-        <div data-chathead-row className={cn("flex items-center justify-between", compactHeader ? "gap-2" : "@max-[30rem]/chathead:flex-wrap @max-[30rem]/chathead:gap-y-1 @min-[30rem]/chathead:grid @min-[30rem]/chathead:grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(max-content,1fr)]", wrapPhoneHeader && "flex-wrap")}>{advanced && !inForkPanel && <ChatActivityControls key={bot.threadId} activity={activity} compact={Boolean(paneTitle)} botId={bot.id} style={headerNoDragStyle} />}
-        <div data-chathead-identity className={cn("flex min-w-0 items-center gap-2", compactHeader ? "flex-1" : "@max-[30rem]/chathead:basis-full @min-[30rem]/chathead:col-start-2 @min-[30rem]/chathead:justify-self-center", wrapPhoneHeader && "flex-auto", simpleHead && phone && "justify-center")} style={headerNoDragStyle}>{headTabs && <HeaderThreadTabs bot={bot} />}
-          {simpleHead || paneTitle ? (
+        <div data-chathead-row className={cn("flex items-center justify-between", compactHeader ? "gap-2" : "@max-[30rem]/chathead:flex-wrap @max-[30rem]/chathead:gap-y-1 @min-[30rem]/chathead:grid @min-[30rem]/chathead:grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(max-content,1fr)]", wrapPhoneHeader && "flex-wrap")}>{advanced && !inForkPanel && !pillSwitcher && <ChatActivityControls key={bot.threadId} activity={activity} compact={Boolean(paneTitle)} botId={bot.id} style={headerNoDragStyle} />}
+        <div data-chathead-identity className={cn("flex min-w-0 items-center gap-2", compactHeader ? "flex-1" : "@max-[30rem]/chathead:basis-full @min-[30rem]/chathead:col-start-2 @min-[30rem]/chathead:justify-self-center", wrapPhoneHeader && !pillSwitcher && "flex-auto", simpleHead && phone && "justify-center")} style={headerNoDragStyle}>{headTabs && <HeaderThreadTabs bot={bot} />}
+          {simpleHead || paneTitle || pillSwitcher ? (
             <ChatHeadPill
               threadTitle={paneTitle ?? undefined}
               bot={bot} switcher={pillSwitcher}
@@ -992,6 +992,7 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
           data-chathead-controls
           className={cn("flex shrink-0 items-center gap-2", wrapPhoneHeader && "ms-auto max-w-full flex-wrap justify-end", !compactHeader && "@max-[30rem]/chathead:ml-auto @max-[30rem]/chathead:flex-wrap @max-[30rem]/chathead:justify-end @min-[30rem]/chathead:col-start-3 @min-[30rem]/chathead:justify-self-end")}
         >{sharedChat && <ThreadPresenceFaces threadId={bot.threadId} />}
+          {advanced && pillSwitcher && <ChatActivityControls key={bot.threadId} activity={activity} compact botId={bot.id} style={headerNoDragStyle} />}
           {!simpleHead && (bot.busy || bot.waitingForTeammates) && (
             <button
               onClick={() => dispatch({ type: "interrupt", botId: bot.id, threadId: bot.threadId })}
@@ -1028,7 +1029,7 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
           >
             <Monitor size={16} />{busy && place === "browser" && <span aria-hidden="true" className="absolute right-1 top-1 size-1.5 animate-pulse rounded-full bg-success" data-testid="computer-button-live" />}
           </button>}
-          {!placed && <HeaderShare bot={bot} />}{!inForkPanel && <NewThreadHeaderButton botId={bot.id} tabs={headTabs} switcher={pillSwitcher} />}{!placed && (compactMenu ? <ChatMoreMenu bot={bot} phoneHeader /> : (advanced || remoteClient) && <ChatHeaderMenu key={`menu:${bot.threadId}`} bot={bot} />)}
+          {!placed && <HeaderShare bot={bot} />}{!inForkPanel && !pillSwitcher && <NewThreadHeaderButton botId={bot.id} tabs={headTabs} />}{!placed && (compactMenu ? <ChatMoreMenu bot={bot} phoneHeader /> : (advanced || remoteClient) && <ChatHeaderMenu key={`menu:${bot.threadId}`} bot={bot} />)}
         </div>
         </div>
       </div>

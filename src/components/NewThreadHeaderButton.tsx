@@ -2,12 +2,9 @@ import { Plus } from "lucide-react";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { useStoreDispatch } from "@/state/store-select";
-import { useBotHasThreads } from "./HeaderThreadTabs";
 
-export function NewThreadHeaderButton({ botId, tabs, switcher }: { botId: string; tabs: boolean; switcher: boolean }) {
+export function NewThreadHeaderButton({ botId, tabs }: { botId: string; tabs: boolean }) {
   const dispatch = useStoreDispatch();
-  const pillHasIt = useBotHasThreads(botId) && switcher;
-  if (pillHasIt) return null;
   return (
     <button
       type="button"

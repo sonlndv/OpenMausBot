@@ -1,154 +1,113 @@
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
-import { ChevronDown, Pin, Plus } from "lucide-react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Check, ChevronDown, Pin, Plus, X } from "lucide-react";
+import { useModalDialog } from "@/hooks/use-modal-dialog";
+import { useCanWriteIn } from "@/lib/cloud-guest";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import { localizedTaskTitle } from "@/lib/task-title";
 import type { Bot } from "@/state/store";
 import { useStoreDispatch } from "@/state/store-select";
-import { BOT_PANEL_ID } from "./bot-panel/side-panel";
-import { ELEVATED_FLOAT } from "./elevated";
-import { edgeFade } from "./HeaderThreadTabs";
-import { reducedMotion } from "./MenuMotion";
-import { openTabId, type ThreadTab } from "./thread-tabs";
+import { ELEVATED_FLOAT, ELEVATED_HOVER } from "./elevated";
+import { Layer } from "./Layer";
+import { openTabId, stripTabs, type ThreadTab } from "./thread-tabs";
 
-const RESIZE_MS = 240;
-const LIST_FADE = 40;
-const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
-const PART = "flex h-full min-w-0 items-center rounded-full outline-none transition-colors duration-[120ms] hover:bg-ink/[0.06] active:bg-ink/[0.08] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none";
-const CHIP = "flex h-10 max-w-full shrink-0 items-center gap-1.5 rounded-full px-3 text-base leading-5 outline-none transition-colors duration-[120ms] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus motion-reduce:transition-none";
+const FOCUS = "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus";
+const ROW = "flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2 text-start text-base hover:bg-raised";
+const tabTitle = (tab: ThreadTab) => tab.draft ? t("task.newShort") : localizedTaskTitle(tab.title || "New thread");
 
-export const tabTitle = (tab: ThreadTab): string => (tab.draft ? t("task.newShort") : !tab.title || tab.title === "New thread" ? t("task.untitledChat") : localizedTaskTitle(tab.title));
-
-/** The pill's width glides from what it was to what its new content needs, then lets go. */
-function useGlidingWidth(key: unknown) {
-  const box = useRef<HTMLDivElement>(null);
-  const last = useRef<number | null>(null);
-  useLayoutEffect(() => {
-    const element = box.current;
-    if (!element) return;
-    element.style.transition = "";
-    element.style.width = "";
-    const to = element.getBoundingClientRect().width;
-    const from = last.current;
-    last.current = to;
-    if (from === null || Math.abs(from - to) < 1 || reducedMotion()) return;
-    element.style.width = `${from}px`;
-    void element.offsetWidth;
-    element.style.transition = `width ${RESIZE_MS}ms ${EASE}`;
-    element.style.width = `${to}px`;
-    const done = window.setTimeout(() => { element.style.transition = ""; element.style.width = ""; }, RESIZE_MS);
-    return () => { window.clearTimeout(done); element.style.transition = ""; element.style.width = ""; };
-  }, [key]);
-  return box;
-}
-
-/**
- * Simple mode's pill for a bot with two threads or more: its face and name open the bot panel as ever, and the open
- * thread's name beside them widens the pill in place into the bot's threads, to pick one or start one. A pick, Escape
- * or a click elsewhere folds it back.
- */
-export function ThreadSwitcherPill({ bot, tabs, head, label, panelOpen, onToggle }: {
-  bot: Bot; tabs: ThreadTab[]; head: ReactNode; label: string; panelOpen: boolean; onToggle: () => void;
+function ThreadDropdown({ anchor, bot, tabs, active, canWrite, id, onClose }: {
+  anchor: HTMLButtonElement; bot: Bot; tabs: ThreadTab[]; active: string; canWrite: boolean; id: string; onClose: () => void;
 }) {
   const dispatch = useStoreDispatch();
-  const [open, setOpen] = useState(false);
-  const box = useGlidingWidth(open);
-  const list = useRef<HTMLDivElement>(null);
-  const toggle = useRef<HTMLButtonElement>(null);
-  const [fade, setFade] = useState<string | undefined>();
-  const active = openTabId(bot);
-  const current = tabs.find((tab) => tab.threadId === active);
-  const canWrite = bot.yourAccess !== "view";
-
-  const close = (refocus: boolean) => {
-    setOpen(false);
-    if (refocus) requestAnimationFrame(() => toggle.current?.focus());
-  };
-  useEffect(() => {
-    if (!open) return;
-    const away = (event: PointerEvent) => { if (!box.current?.contains(event.target as Node)) setOpen(false); };
-    document.addEventListener("pointerdown", away);
-    return () => document.removeEventListener("pointerdown", away);
-  }, [open]);
+  const dialog = useRef<HTMLElement>(null);
+  const firstFocus = useRef<HTMLButtonElement>(null);
+  const [focusId, setFocusId] = useState(tabs.find(tab => tab.threadId === active)?.threadId ?? tabs[0]?.threadId);
   useLayoutEffect(() => {
-    if (!open || !list.current) return;
-    const row = list.current;
-    row.scrollLeft = 0;
-    const chip = row.querySelector<HTMLElement>('[aria-selected="true"]') ?? row.querySelector<HTMLElement>("[role=option]");
-    chip?.focus({ preventScroll: true });
-    const settle = window.setTimeout(() => {
-      chip?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-      setFade(edgeFade(row, LIST_FADE));
-    }, reducedMotion() ? 0 : RESIZE_MS);
-    return () => window.clearTimeout(settle);
-  }, [open]);
+    const place = () => {
+      const rect = anchor.getBoundingClientRect();
+      dialog.current?.style.setProperty("--thread-anchor-center", `${rect.left + rect.width / 2}px`);
+      dialog.current?.style.setProperty("--thread-dropdown-top", `${rect.bottom + 6}px`);
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(anchor);
+    window.addEventListener("resize", place);
+    return () => { observer.disconnect(); window.removeEventListener("resize", place); };
+  }, [anchor]);
+  useModalDialog(dialog, onClose);
+  useEffect(() => { firstFocus.current?.focus(); }, []);
 
-  const pick = (tab: ThreadTab) => {
-    if (tab.threadId !== active) dispatch({ type: "switchTask", botId: bot.id, threadId: tab.threadId });
-    close(true);
-  };
-  const onKey = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); close(true); return; }
-    const chips = Array.from(list.current?.querySelectorAll<HTMLElement>("[role=option]") ?? []);
-    const at = chips.indexOf(document.activeElement as HTMLElement);
+  const moveFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+    const options = event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]');
+    const at = Array.from(options).indexOf(document.activeElement as HTMLButtonElement);
     if (at < 0) return;
-    const rtl = getComputedStyle(event.currentTarget).direction === "rtl";
-    const step = event.key === "ArrowRight" ? (rtl ? -1 : 1) : event.key === "ArrowLeft" ? (rtl ? 1 : -1) : 0;
-    const to = step ? Math.min(Math.max(at + step, 0), chips.length - 1) : event.key === "Home" ? 0 : event.key === "End" ? chips.length - 1 : null;
+    const to = event.key === "ArrowDown" ? Math.min(at + 1, options.length - 1) : event.key === "ArrowUp" ? Math.max(at - 1, 0)
+      : event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : null;
     if (to === null) return;
     event.preventDefault();
-    chips[to]?.focus();
+    options[to]?.focus();
   };
 
-  return (
-    <div ref={box} data-chathead-switch={open ? "open" : "closed"} onKeyDown={open ? onKey : undefined}
-      className={cn("phone-header-surface flex min-h-11 min-w-0 max-w-full items-center overflow-hidden rounded-full px-1.5 text-ink", ELEVATED_FLOAT, open && "w-full rounded-2xl py-1")}>
-      {open ? (
-        <div key="open" className="grid w-full min-w-0 animate-fade-in grid-cols-[minmax(0,1fr)_auto] items-center gap-1 motion-reduce:animate-none">
-          <button type="button" data-chathead-pill data-tour="bot-pill" onClick={onToggle} title={t("chat.openBotPanel")} aria-label={label}
-            aria-expanded={panelOpen} aria-controls={panelOpen ? BOT_PANEL_ID : undefined} className={cn(PART, "col-span-full min-h-10 justify-self-start")}>
-            {head}
-          </button>
-          <div ref={list} role="listbox" aria-label={t("task.namedList", { name: bot.name })} aria-orientation="horizontal"
-            onScroll={(event) => setFade(edgeFade(event.currentTarget, LIST_FADE))} style={{ maskImage: fade, WebkitMaskImage: fade }}
-            className={cn("flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", !canWrite && "col-span-full")}>
-            {tabs.map((tab) => {
-              const selected = tab.threadId === active;
-              const title = tabTitle(tab);
-              return (
-                <button key={tab.threadId} type="button" role="option" aria-selected={selected} tabIndex={selected ? 0 : -1} title={title}
-                  data-thread-chip={tab.threadId} onClick={() => pick(tab)}
-                  className={cn(CHIP, selected ? "bg-ink/[0.1] text-ink" : "text-ink-secondary hover:bg-ink/[0.06] hover:text-ink")}>
-                  {tab.working ? <span role="img" aria-label={t("chat.activity.working")} className="size-1.5 shrink-0 animate-pulse rounded-full bg-success motion-reduce:animate-none" />
-                    : tab.pinned ? <Pin size={12} role="img" aria-label={t("task.pinned")} className="shrink-0 text-ink-tertiary" /> : null}
-                  <span dir="auto" className="min-w-0 truncate">{title}</span>
-                </button>
-              );
-            })}
-          </div>
-          {canWrite && (
-            <button type="button" data-thread-chip-new aria-label={t("task.newShort")} title={t("task.newShort")}
-              onClick={() => { dispatch({ type: "newTask", botId: bot.id }); close(false); }}
-              className={cn(PART, "size-10 shrink-0 justify-center text-ink-secondary hover:text-ink")}>
-              <Plus size={16} aria-hidden="true" />
-            </button>
-          )}
-        </div>
-      ) : (
-        <div key="closed" className="flex min-w-0 items-center max-md:[&>button]:min-h-11">
-          <button type="button" data-chathead-pill data-tour="bot-pill" onClick={onToggle} title={t("chat.openBotPanel")} aria-label={label}
-            aria-expanded={panelOpen} aria-controls={panelOpen ? BOT_PANEL_ID : undefined} className={cn(PART, "shrink-0 max-md:max-w-[48%]")}>
-            {head}
-          </button>
-          <button ref={toggle} type="button" data-chathead-threads aria-haspopup="listbox" aria-expanded={false}
-            aria-label={t("task.namedList", { name: bot.name })} onClick={() => setOpen(true)}
-            className={cn(PART, "gap-1.5 pe-2.5 ps-1.5 text-[14px] font-medium leading-5 text-ink-secondary hover:text-ink max-md:text-base max-md:leading-5 max-md:text-ink")}>
-            <span aria-hidden="true" className="text-ink-tertiary">·</span>
-            <span data-chathead-conversation dir="auto" className="min-w-0 max-w-[180px] truncate max-md:line-clamp-2 max-md:whitespace-normal max-md:text-start max-md:break-words">{current ? tabTitle(current) : ""}</span>
-            <ChevronDown size={12} aria-hidden="true" className="shrink-0 text-ink-tertiary max-md:size-4 max-md:text-ink-secondary" />
-          </button>
-        </div>
-      )}
-    </div>
-  );
+  return <div className="fixed inset-0 z-[60]"
+    onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
+    <section ref={dialog} id={id} role="dialog" aria-modal="true" aria-labelledby={`${id}-heading`} tabIndex={-1}
+      className="thread-dropdown absolute flex flex-col overflow-hidden rounded-2xl border border-hairline bg-panel text-ink shadow-xl outline-none">
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline/50 py-2 ps-5 pe-2">
+        <h2 id={`${id}-heading`} className="min-w-0 font-semibold [overflow-wrap:anywhere]">{t("task.namedList", { name: bot.name })}</h2>
+        <button type="button" aria-label={t("common.close")} onClick={onClose} className={cn("flex size-11 shrink-0 items-center justify-center rounded-full text-ink-secondary hover:bg-raised", FOCUS)}>
+          <X size={18} aria-hidden="true" />
+        </button>
+      </header>
+      <div role="listbox" aria-labelledby={`${id}-heading`} aria-orientation="vertical" onKeyDown={moveFocus}
+        className="flex min-h-0 flex-col overflow-y-auto overscroll-contain p-2">
+        {tabs.map(tab => {
+          const selected = tab.threadId === active;
+          const focusable = tab.threadId === focusId;
+          return <button key={tab.threadId} type="button" role="option" aria-selected={selected} data-thread-chip={tab.threadId}
+            ref={focusable ? firstFocus : undefined} tabIndex={focusable ? 0 : -1} onFocus={() => setFocusId(tab.threadId)}
+            onClick={() => {
+              if (!selected) dispatch({ type: "switchTask", botId: bot.id, threadId: tab.threadId });
+              onClose();
+            }}
+            className={cn(ROW, FOCUS, "shrink-0", selected && "bg-raised font-medium")}>
+            <span dir="auto" className="min-w-0 flex-1 [overflow-wrap:anywhere]">{tabTitle(tab)}</span>
+            {tab.working && <span role="img" aria-label={t("chat.activity.working")} className="size-2 shrink-0 animate-pulse rounded-full bg-success motion-reduce:animate-none" />}
+            {tab.pinned && <Pin size={15} role="img" aria-label={t("task.pinned")} className="shrink-0 text-ink-tertiary" />}
+            {selected && <Check size={18} aria-hidden="true" className="shrink-0 text-accent" />}
+          </button>;
+        })}
+      </div>
+      {canWrite && <div className="shrink-0 border-t border-hairline/50 p-2">
+        <button type="button" data-thread-chip-new onClick={() => { dispatch({ type: "newTask", botId: bot.id }); onClose(); }}
+          className={cn(ROW, FOCUS, "font-medium")}>
+          <Plus size={18} aria-hidden="true" />{t("task.newShort")}
+        </button>
+      </div>}
+    </section>
+  </div>;
+}
+
+export function ThreadSwitcherPill({ bot, avatar, badges }: { bot: Bot; avatar: ReactNode; badges: ReactNode }) {
+  const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
+  const id = useId();
+  const tabs = useMemo(() => stripTabs(bot), [bot.id, bot.threadId, bot.switchingTo, bot.mainThreadId, bot.tasks, bot.busy]);
+  const active = openTabId(bot);
+  const current = tabs.find(tab => tab.threadId === active);
+  const canWrite = useCanWriteIn(bot.threadId, bot.yourAccess);
+  return <>
+    <button type="button" data-chathead-pill data-chathead-threads aria-haspopup="dialog" aria-controls={anchor ? id : undefined} aria-expanded={!!anchor}
+      onClick={event => { event.currentTarget.focus({ preventScroll: true }); setAnchor(event.currentTarget); }}
+      className={cn("phone-header-surface flex min-h-11 min-w-0 max-w-full items-center gap-2 rounded-full ps-2 pe-3 py-1 text-start text-ink", ELEVATED_FLOAT, ELEVATED_HOVER, FOCUS)}>
+      <span aria-hidden="true" className="shrink-0">{avatar}</span>
+      <span className="flex min-w-0 flex-col">
+        <span className="flex min-w-0 items-center gap-1 text-xs leading-4 text-ink-secondary">
+          <span className="shrink-0 font-medium">{t("task.list")}</span><span aria-hidden="true">·</span>
+          <span dir="auto" className="min-w-0 truncate">{bot.name}</span>{badges}
+        </span>
+        <span data-chathead-conversation dir="auto" className="line-clamp-2 text-base font-semibold leading-5 [overflow-wrap:anywhere]">{current ? tabTitle(current) : t("task.untitledChat")}</span>
+      </span>
+      <ChevronDown size={15} aria-hidden="true" className={cn("shrink-0 text-ink-secondary", anchor && "rotate-180")} />
+    </button>
+    {anchor && <Layer modal><ThreadDropdown anchor={anchor} id={id} bot={bot} tabs={tabs} active={active} canWrite={canWrite === true} onClose={() => setAnchor(null)} /></Layer>}
+  </>;
 }

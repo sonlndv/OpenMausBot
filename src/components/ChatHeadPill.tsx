@@ -1,6 +1,6 @@
 import { localizedTaskTitle } from "@/lib/task-title";
 import { ChevronRight, Lock, UserRound, Users } from "lucide-react";
-import { useMemo, type ComponentProps } from "react";
+import type { ComponentProps } from "react";
 
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -11,7 +11,6 @@ import { BotAvatar } from "./Avatar";
 import { ELEVATED_FLOAT } from "./elevated";
 import { sidebarBotActivityTasks } from "./SidebarBotActivity";
 import { sharedChatAudience } from "./TeamPrivateChatsLine";
-import { showsTabs, threadTabs } from "./thread-tabs";
 import { ThreadSwitcherPill } from "./ThreadSwitcherPill";
 
 /** The factory title a new conversation starts with. */
@@ -39,20 +38,12 @@ export function ChatHeadPill({ bot, avatar, privacy, onToggle, threadTitle, swit
   threadTitle?: string;
   onToggle: (open: boolean) => void;
 }) {
-  const open = useStoreSelector((state) => state.settingsOpen);
   const pendingQueued = useStoreSelector((state) => state.pendingQueued);
   const elsewhere = sidebarBotActivityTasks(bot, pendingQueued).filter((task) => task.threadId !== bot.threadId).length;
   const privacyLabel = privacyLabelOf(privacy);
   const PrivacyIcon = privacy ? PRIVACY_ICONS[privacy.kind] : Users;
-  const title = bot.tasks?.find((task) => task.threadId === bot.threadId)?.title;
-  // Simple mode calls an untitled conversation what it is, never a "thread".
-  const conversation = threadTitle ?? (!awayFromMainThread(bot, false) ? (privacy?.kind === "shared" ? t("task.sharedChat") : null)
-    : !title || title === UNTITLED ? t("task.untitledChat") : localizedTaskTitle(title));
-  const label = t("chat.openProfileAria", { name: bot.name });
-  const tabs = useMemo(() => (switcher ? threadTabs(bot) : []), [switcher, bot.id, bot.threadId, bot.switchingTo, bot.mainThreadId, bot.tasks, bot.busy]);
-  const identity = <>
-    <BotAvatar bot={bot} size={28} {...avatar} />
-    <span dir="auto" className="min-w-0 truncate text-[14px] font-medium leading-5 max-md:text-base max-md:font-semibold">{bot.name}</span>
+  const face = <BotAvatar bot={bot} size={28} {...avatar} />;
+  const badges = <>
     {privacyLabel && (
       <span data-chathead-privacy={privacy?.kind} title={privacyLabel} className="flex shrink-0 text-ink-tertiary">
         <PrivacyIcon size={13} aria-hidden="true" />
@@ -63,13 +54,18 @@ export function ChatHeadPill({ bot, avatar, privacy, onToggle, threadTitle, swit
       <span role="img" data-chathead-elsewhere aria-label={t("task.otherActivity", { count: elsewhere })} className="size-1.5 shrink-0 rounded-full bg-accent" />
     )}
   </>;
-  if (showsTabs(tabs)) {
-    return <ThreadSwitcherPill bot={bot} tabs={tabs} head={<span className="flex min-w-0 items-center gap-2 pe-1">{identity}</span>} label={label} panelOpen={open} onToggle={() => onToggle(!open)} />;
-  }
+  if (switcher) return <ThreadSwitcherPill key={bot.id} bot={bot} avatar={face} badges={badges} />;
+
+  const title = bot.tasks?.find((task) => task.threadId === bot.threadId)?.title;
+  // Simple mode calls an untitled conversation what it is, never a "thread".
+  const conversation = threadTitle ?? (!awayFromMainThread(bot, false) ? (privacy?.kind === "shared" ? t("task.sharedChat") : null)
+    : !title || title === UNTITLED ? t("task.untitledChat") : localizedTaskTitle(title));
   return (
     <div data-chathead-pill className={cn("phone-header-surface flex min-w-0 max-w-full items-center rounded-full text-ink max-md:min-h-11", ELEVATED_FLOAT)}>
       <WorkspaceThreadPicker key={bot.id} owner={bot} onProfile={() => onToggle(true)}>
-        {identity}
+        {face}
+        <span dir="auto" className="min-w-0 truncate text-[14px] font-medium leading-5 max-md:text-base max-md:font-semibold">{bot.name}</span>
+        {badges}
         {!conversation && (
           // Hidden at rest and folded into the gap, so the pill stays tight; it slides in on hover or keyboard focus.
           <span aria-hidden="true" data-chathead-chevron className={cn("-ml-2 flex w-0 shrink-0 overflow-hidden opacity-0 transition-[width,margin,opacity] group-hover:-ml-0.5 group-hover:w-3 group-hover:opacity-100 group-focus-visible:-ml-0.5 group-focus-visible:w-3 group-focus-visible:opacity-100", CHEVRON_MOTION)}>
