@@ -1,5 +1,5 @@
 import { MAIN_PANE } from "@/state/pane-layout";
-import { workspaceLayout } from "@/state/fork-panel";
+import { narrowPanel, workspaceLayout } from "@/state/fork-panel";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, Loader2, Menu } from "lucide-react";
 import { CLOUD_LINK_SETTINGS, openBot, StoreProvider, useStore } from "@/state/store";
@@ -25,7 +25,6 @@ import { ChatView } from "@/components/ChatView";
 import { HandoffExchangeHost } from "@/components/HandoffExchange";
 import { GroupView } from "@/components/GroupView";
 import { WorkspaceLayoutContext, FocusedWorkspaceThread, WorkspaceChatContext } from "@/state/workspace-chat-context";
-import { useResponsiveWorkspace } from "@/hooks/use-responsive-workspace";
 import { WorkspacePanes } from "@/components/WorkspacePanes";
 import { ForkPanel } from "@/components/ForkPanel";
 import { RoomFeedView } from "@/components/room-feed/RoomFeedView";
@@ -134,9 +133,6 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
   const sidebarAndNarrowPanelFit = useMediaQuery(SIDEBAR_AND_NARROW_PANEL_FIT, true);
   const sidebarAndBotPanelFit = useMediaQuery(SIDEBAR_AND_BOT_PANEL_FIT, true);
   const sidebarInline = useMediaQuery(SIDEBAR_INLINE, false);
-  useEffect(() => {
-    if (!sidebarInline && state.forkPanel) dispatch({ type: "closeForkPanel" });
-  }, [sidebarInline, state.forkPanel, dispatch]);
   useRememberedSidePanel(state, dispatch, { enabled: sidebarInline, inspector: !remoteClient });
   useEffect(() => {
     if (!window.ogb?.environments) return;
@@ -195,35 +191,43 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
   const placedPanelBot = state.settingsOpen && settingsBot && isPlaceId(settingsBot.id) ? settingsBot
     : state.computerOpen && bot && isPlaceId(bot.id) ? bot : undefined;
   const chatBot = useMemo(() => bot && newChatBot(bot, state.newChat), [bot, state.newChat]);
-  const { open: drawerOpen, show: openDrawer, hide: hideDrawer, noteAction: noteDrawerAction, back: drawerBack, backSteps: drawerBackSteps } = useBotListDrawer({ selectedId: state.selectedId, botThread: chatBot?.threadId, groupThread: group?.threadId,
+  const projected = sidebarInline ? null : narrowPanel(state);
+  const { open: drawerOpen, show: openDrawer, hide: hideDrawer, noteAction: noteDrawerAction, back: drawerBack, backSteps: drawerBackSteps } = useBotListDrawer({ selectedId: state.selectedId,
+    botThread: projected ? (projected.kind === "bot" ? projected.threadId : undefined) : chatBot?.threadId,
+    groupThread: projected ? (projected.kind === "group" ? projected.threadId : undefined) : group?.threadId,
     view: state.activeView, pluginsOpen: state.pluginsOpen, settingsOpen: state.settingsOpen });
   const closeDrawer = useCallback(() => { hideDrawer(); menuButtonRef.current?.focus(); }, [hideDrawer]);
+  useEffect(() => {
+    if (sidebarInline && drawerOpen) hideDrawer();
+  }, [sidebarInline, drawerOpen, hideDrawer]);
   const notificationFeed = useNotificationFeed() && !remoteClient;
   const advanced = useAdvancedMode(), skillBurger = useFeature("skillBurger"), roomFeed = useRoomFeed(group);
   // A thread opened from a room's feed sits beside it while both fit, and takes the feed's place when they don't.
   const feedThreadFull = useFeedThreadFull(group && roomFeed && sidebarInline && state.forkPanel?.kind === "group" && state.forkPanel.ownerId === group.id ? state.forkPanel.threadId : null);
   const roomPanelOpen = useRoomPanelShown({ group, state, simple: !advanced && !remoteClient });
+  const wideTools = Boolean(bot) && (state.computerOpen || state.inspectorOpen || state.activityOpen);
   const sidePanels: OpenSidePanels = {
     simple: !advanced, remoteClient, bot: Boolean(settingsBot) && state.settingsOpen, room: roomPanelOpen, inbox: inboxShown, inboxWide: inboxPanel.wide === true,
     notifications: notificationFeed && state.notificationsOpen,
-    wide: (Boolean(bot) && (state.computerOpen || state.inspectorOpen || state.activityOpen)) || Boolean(state.forkPanel),
+    wide: wideTools || Boolean(state.forkPanel),
   };
-  const panelOpen = anySidePanel(sidePanels);
+  const panelOpen = anySidePanel({ ...sidePanels, wide: wideTools });
   // On a phone, back closes the open list or side panel, and from a chat picked in the list goes back to the list.
   const phoneLayout = useMediaQuery(PHONE_LAYOUT, false);
   const calendarFocus = state.activeView === "routines" && state.routinesFocus.view === "calendar";
   const appPreview = useAppPreview();
   const filePreview = useFilePreview();
   const preview = state.activeView === "chat" && (appPreview !== null || filePreview !== null);
-  const backPlace = { calendar: calendarFocus, drawerOpen, panelOpen, preview, appsPage: state.pluginsOpen, drawerSteps: drawerBackSteps };
+  const backPlace = { calendar: calendarFocus, drawerOpen, panelOpen, threadDetail: Boolean(state.forkPanel), preview, appsPage: state.pluginsOpen, drawerSteps: drawerBackSteps };
   usePhoneBack(phoneLayout, phoneBackSteps(backPlace), () => {
     const step = phoneBackStep(backPlace);
     if (step === "calendar") return dispatch({ type: "showRoutines", view: "list", botId: state.routinesFocus.botId });
+    if (step === "preview") { closeAppPreview(); closeFilePreview(); return; }
+    if (step === "thread-detail") return dispatch({ type: "closeForkPanel" });
     if (step === "apps-page") dispatch({ type: "togglePlugins", open: false });
     if (step !== "panels") return drawerBack();
     closeSidePanels(dispatch);
     dispatch({ type: "toggleNotifications", open: false });
-    dispatch({ type: "closeForkPanel" });
     closeRoomPanel();
     closeInbox();
     closeAppPreview();
@@ -405,12 +409,16 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
   </>;
   const primary = group ?? chatBot ?? bot;
   const paneChat = sidebarInline && primary && state.activeView === "chat" && !firstRun && !teamWelcomeOn && !chiefStep && !localVmWorkspaceBotId ? primary.threadId : null;
-  const focusedThread = state.workspacePanes && paneChat ? (state.workspacePanes.focused === MAIN_PANE ? paneChat : state.workspacePanes.focused) : null;
-  useResponsiveWorkspace(state, dispatch, sidebarInline, primary && state.activeView === "chat"
-    ? { kind: group ? "group" : "bot", ownerId: primary.id, threadId: primary.threadId } : undefined);
-  useEffect(() => {
-    if (paneChat && state.workspacePanes?.panels[paneChat]) dispatch({ type: "closePane", id: paneChat });
-  }, [dispatch, paneChat, state.workspacePanes]);
+  const focusedThread = state.workspacePanes && primary ? (state.workspacePanes.focused === MAIN_PANE ? primary.threadId : state.workspacePanes.focused) : null;
+  useLayoutEffect(() => {
+    const standalone = state.forkPanel;
+    for (const panel of standalone ? [standalone] : Object.values(state.workspacePanes?.panels ?? {})) {
+      const owner = (panel.kind === "bot" ? state.bots : state.groups).find(item => item.id === panel.ownerId);
+      if (!owner || (owner.tasks && owner.threadId !== panel.threadId && !owner.tasks.some(task => task.threadId === panel.threadId))) {
+        dispatch(panel === standalone ? { type: "closeForkPanel" } : { type: "vacatePane", id: panel.threadId });
+      } else if (!standalone && panel.threadId === primary?.threadId) dispatch({ type: "closePane", id: panel.threadId });
+    }
+  }, [dispatch, primary?.threadId, state.bots, state.groups, state.workspacePanes, state.forkPanel]);
 
   return (
     <WorkspaceLayoutContext value={workspaceLayout(state)}><WorkspaceChatContext value={paneChat}><FocusedWorkspaceThread value={focusedThread}>
@@ -489,7 +497,7 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
         <CloudEngineSignIn />
       ) : chiefStep ? (
         <EmptyChatShell />
-      ) : primary ? (
+      ) : !sidebarInline && state.forkPanel ? null : primary ? (
         <WorkspacePanes primary={primary.threadId} title={roomFeed ? primary.name : primary.tasks?.find((task) => task.threadId === primary.threadId)?.title ?? primary.name}>
           {group && roomFeed ? (feedThreadFull ? <ForkPanel full /> : <RoomFeedView key={group.id} group={group} />)
             : group ? <GroupView key={group.id} group={group} />
@@ -530,8 +538,8 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
         )
       )}
       <AppPreviewPanel />
-      <FilePreviewPanel threadId={group?.threadId ?? bot?.threadId} />
-      {state.forkPanel && sidebarInline && !feedThreadFull && <ForkPanel />}
+      <FilePreviewPanel threadId={narrowPanel(state)?.threadId ?? group?.threadId ?? bot?.threadId} />
+      {state.forkPanel && !feedThreadFull && <ForkPanel full={!sidebarInline} />}
       {!state.forkPanel && roomPanelOpen && group && (
         <RoomPanel key={`room:${group.id}`} group={group} overlay={notificationFeed && state.notificationsOpen && !twoSidePanelsFit} />
       )}

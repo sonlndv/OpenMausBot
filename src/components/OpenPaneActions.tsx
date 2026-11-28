@@ -1,4 +1,4 @@
-import { FocusedWorkspaceThread, WorkspaceLayoutContext, WorkspaceChatContext } from "@/state/workspace-chat-context";
+import { focusChatPane, FocusedWorkspaceThread, WorkspaceLayoutContext, WorkspaceChatContext } from "@/state/workspace-chat-context";
 import { emptyPane, paneIds, placePane, MAIN_PANE, type PaneEdge } from "@/state/pane-layout";
 import { useContext } from "react";
 import { Columns2, MoreHorizontal, Rows2 } from "lucide-react";
@@ -11,11 +11,21 @@ export function useSelectThreadPane() {
   const store = useOptionalStoreRef();
   const primary = useContext(WorkspaceChatContext);
   return (ownerId: string, threadId: string): boolean => {
-    const panes = store?.state().workspacePanes;
-    if (!panes || !primary || !store) return false;
+    if (!store) return false;
+    const state = store.state(), panes = state.workspacePanes;
+    if (!panes || state.activeView !== "chat") return false;
+    if (!primary) {
+      const owner = state.groups.find(group => group.id === state.selectedId) ?? state.bots.find(bot => bot.id === state.selectedId);
+      if (owner?.threadId === threadId) return false;
+      if (panes.panels[threadId] || panes.focused !== MAIN_PANE) {
+        store.dispatch({ type: "openForkPanel", ownerId, threadId, kind: state.groups.some(group => group.id === ownerId) ? "group" : "bot", split: "replace" });
+        return true;
+      }
+      return false;
+    }
     const pane = document.querySelector<HTMLElement>(`[data-workspace-thread="${CSS.escape(threadId)}"]`);
     if (pane) {
-      (pane.querySelector<HTMLElement>('[data-tour="composer"] textarea:not(:disabled)') ?? pane).focus();
+      focusChatPane(pane);
       return true;
     }
     if (panes.focused === MAIN_PANE) return false;

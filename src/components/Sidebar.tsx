@@ -3,9 +3,9 @@ import { PaneLayoutMenu } from "./PaneLayoutMenu";
 import { WorkspaceChatContext } from "@/state/workspace-chat-context";
 import { startPaneDrag } from "@/lib/workspace-pane-drag";
 import { OrganizationIdentity } from "./OrganizationIdentity";
-import { memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch } from "react";
+import { memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch } from "react";
 import { createPortal } from "react-dom";
-import { Archive, Bot as BotIcon, Check, ChevronRight, ClipboardCopy, Crown, FolderInput, FolderPlus, LayoutTemplate, Loader2, MessageSquarePlus, MoreHorizontal, Pencil, Phone, Pin, Plus, Search, SquarePen, TextQuote, Trash2, Users, X } from "lucide-react";
+import { Archive, ArrowDown, ArrowUp, Bot as BotIcon, Check, ChevronRight, ClipboardCopy, Crown, FolderInput, FolderPlus, LayoutTemplate, Loader2, MessageSquarePlus, MoreHorizontal, Pencil, Phone, Pin, Plus, Search, SquarePen, TextQuote, Trash2, Users, X } from "lucide-react";
 import { botPendingQueued, botRoutineRuns, sameBotRowProps, sidebarState } from "./sidebar-state"; import { sameFields, useStoreDispatch, useStoreSelector } from "@/state/store-select"; import { useStoreRef } from "@/state/store-ref"; import { sameDrawnBots } from "@/lib/drawn-bots";
 import { api, formatTime, visibleMessages, currentTaskBot, botOpensTo, openBot, openThread, type Action, type AppState, type Bot, type BotProject, type Group, type InstanceInfo, type Message } from "@/state/store";
 import { approvalModeFor } from "../../shared/approval-mode";
@@ -179,6 +179,7 @@ export const GroupListItem = memo(function GroupListItem({
         "relative flex w-full items-center rounded-md text-left", SIMPLE_ROW_FOCUS,
         density === "icons" ? (railTile ? "h-[54px] justify-center" : "justify-center px-1 py-1.5") : simpleRow
           ? cn("gap-2.5 rounded-xl py-2 pr-2 group-hover:pr-9 group-focus-within:pr-9 max-md:pr-9 touch:pr-9 md:h-[54px] md:py-0", !group.dm && hasThreadList ? "pl-6" : "pl-2") : "gap-2 py-1.5 pl-6 pr-9",
+        density !== "icons" && (group.dm ? "touch:pe-12 max-md:pe-12" : "touch:pe-24 max-md:pe-24"),
         selected && !expanded ? rowSelectedSurface : "hover:bg-ink/[0.06]",
       )}
       title={density === "icons" ? group.name : undefined}
@@ -208,7 +209,12 @@ export const GroupListItem = memo(function GroupListItem({
     </button>}
     {!group.dm && density !== "icons" && <button type="button" disabled={roomBusy && !feed} aria-label={t("task.newShort")} title={t(roomBusy && !feed ? "task.newBusy" : "task.newShort")}
       onClick={() => { setThreadsOpen(true); dispatch({ type: "newGroupTask", groupId: group.id }); }}
-      className="pointer-events-none absolute right-1 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded text-ink-secondary opacity-0 hover:bg-raised hover:text-ink disabled:opacity-40 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 max-md:pointer-events-auto max-md:opacity-70 touch:pointer-events-auto touch:opacity-70 touch:disabled:opacity-40"><Plus size={16} /></button>}
+      className="pointer-events-none absolute end-1 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded text-ink-secondary opacity-0 hover:bg-raised hover:text-ink disabled:opacity-40 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 max-md:end-11 max-md:size-10 max-md:pointer-events-auto max-md:opacity-70 touch:end-11 touch:size-10 touch:pointer-events-auto touch:opacity-70 touch:disabled:opacity-40"><Plus size={16} /></button>}
+    {density !== "icons" && <button type="button" aria-haspopup="menu" data-room-actions={group.id}
+      aria-label={t("sidebar.bot.actions", { name: group.name })} title={t("sidebar.bot.actions", { name: group.name })}
+      className="absolute end-1 top-1/2 hidden size-10 -translate-y-1/2 items-center justify-center rounded-full text-ink-secondary hover:bg-raised touch:flex max-md:flex"
+      onClick={(e) => { const rect = e.currentTarget.getBoundingClientRect(); onMenu({ groupId: group.id, x: rect.left, y: rect.bottom }); }}>
+      <MoreHorizontal size={16} aria-hidden="true" /></button>}
     </div>
     {expanded && <GroupThreadList group={group} selected={selected} query={group.name.toLowerCase().includes(query.toLowerCase()) ? "" : query} />}
     </>
@@ -219,11 +225,15 @@ function RoomContextMenu({
   menu,
   onClose,
   onMoveToSection,
+  moveUp, moveDown,
+  admin,
   onDelete,
 }: {
   menu: { groupId: string; x: number; y: number } | null;
   onClose: () => void;
   onMoveToSection: (groupId: string) => void;
+  moveUp?: () => void; moveDown?: () => void;
+  admin: boolean;
   onDelete: (groupId: string) => void;
 }) {
   const motion = useHeldMenuMotion(menu);
@@ -231,17 +241,34 @@ function RoomContextMenu({
   const dispatch = useStoreDispatch(), store = useStoreRef();
   const remoteClient = window.ogb?.remoteClient?.active === true;
   const group = useStoreSelector((s) => shown ? s.groups.find((g) => g.id === shown.groupId) : undefined);
+  const roomRef = useRef<HTMLDivElement>(null);
+  const viewOnly = useStoreSelector(s => Boolean(group?.memberIds.some(id => s.bots.find(bot => bot.id === id)?.yourAccess === "view")));
+  const canEdit = !remoteClient && !viewOnly;
   const [renaming, setRenaming] = useState(false);
   const [describing, setDescribing] = useState(false);
   const [draft, setDraft] = useState(group?.name ?? "");
   const [descriptionDraft, setDescriptionDraft] = useState(group?.description ?? "");
 
+  useLayoutEffect(() => {
+    const element = roomRef.current;
+    if (!element || !shown) return;
+    const place = () => {
+      element.style.top = `${Math.max(8, Math.min(shown.y, innerHeight - element.offsetHeight - 8))}px`;
+      element.style.left = `${Math.max(8, Math.min(shown.x, innerWidth - element.offsetWidth - 8))}px`;
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [shown, renaming, describing, moveUp, moveDown, admin, canEdit]);
   useEffect(() => {
     if (!menu) return;
     const named = store.state().groups.find((g) => g.id === menu.groupId);
     setDraft(named?.name ?? ""); setDescriptionDraft(named?.description ?? "");
     setRenaming(false);
     setDescribing(false);
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    roomRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    return () => { if (opener?.isConnected) opener.focus({ preventScroll: true }); };
   }, [menu]);
   useEffect(() => {
     if (!menu) return;
@@ -273,19 +300,20 @@ function RoomContextMenu({
     }
     onClose();
   };
-  const top = Math.min(shown.y, window.innerHeight - 204);
-  const left = Math.min(shown.x, window.innerWidth - 240);
   return createPortal(
     <div
       data-room-menu
       data-sidebar
       role="menu"
       aria-label={t("sidebar.bot.actions", { name: group.name })}
-      onKeyDown={navigateThreadMenu}
-      style={{ top, left }}
-      className={cn("fixed z-40 w-[228px] overflow-hidden", MENU_SHEET, motion.className)} {...motion.exitProps}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); onClose(); }
+        else navigateThreadMenu(event);
+      }}
+      ref={roomRef}
+      className={cn("fixed z-40 max-h-[calc(100dvh-1rem)] w-[228px] overflow-y-auto", MENU_SHEET, motion.className)} {...motion.exitProps}
     >
-      {!remoteClient && describing ? (
+      {canEdit && admin && describing ? (
         <div className="flex items-center gap-1 px-2 py-1">
           <input
             autoFocus
@@ -326,7 +354,7 @@ function RoomContextMenu({
             <X size={15} />
           </button>
         </div>
-      ) : !remoteClient && (renaming ? (
+      ) : canEdit && (renaming ? (
         <div className="flex items-center gap-1 px-2 py-1">
           <input
             autoFocus
@@ -379,7 +407,7 @@ function RoomContextMenu({
           {isBotChat ? t("sidebar.room.renameChat") : t("sidebar.room.renameChannel")}
         </button>
       ))}
-      {!remoteClient && !renaming && !isBotChat && (
+      {canEdit && admin && !renaming && !describing && !isBotChat && (
         <button
           role="menuitem"
           onClick={() => {
@@ -392,7 +420,7 @@ function RoomContextMenu({
           {t("sidebar.room.setDescription")}
         </button>
       )}
-      {!remoteClient && !isBotChat && (
+      {canEdit && !isBotChat && (
         <button
           role="menuitem"
           onClick={() => {
@@ -405,6 +433,10 @@ function RoomContextMenu({
           {t("sidebar.section.moveToContext")}
         </button>
       )}
+      {!renaming && !describing && moveUp && <button role="menuitem" className={cn(MENU_ITEM, "text-ink hover:bg-menu-hover")}
+        onClick={() => { onClose(); moveUp(); }}><ArrowUp size={16} aria-hidden="true" />{t("team.moveUp")}</button>}
+      {!renaming && !describing && moveDown && <button role="menuitem" className={cn(MENU_ITEM, "text-ink hover:bg-menu-hover")}
+        onClick={() => { onClose(); moveDown(); }}><ArrowDown size={16} aria-hidden="true" />{t("team.moveDown")}</button>}
       <button
         role="menuitem"
         onClick={() => {
@@ -416,7 +448,7 @@ function RoomContextMenu({
         <ClipboardCopy size={16} className="text-ink-secondary" />
         {t("sidebar.copyConversationId")}
       </button>
-      {!remoteClient && <button
+      {canEdit && admin && <button
         role="menuitem"
         onClick={() => {
           onClose();
@@ -970,7 +1002,7 @@ export const Sidebar = memo(function Sidebar({ open, onClose, showPaneLayout = f
   const [teamFeedback, setTeamFeedback] = useState<ArchiveNotice | null>(null);
   const [query, setQuery] = useState("");
   const storedDensity = useSidebarDensity();
-  const density = collapseToIcons ? "icons" : storedDensity;
+  const density = phone ? "comfortable" : collapseToIcons ? "icons" : storedDensity;
   const simple = !advanced && density !== "icons";
   const simpleDesk = simple && !phone;
   const webRows = browserSidebar() && density !== "icons";
@@ -1071,7 +1103,7 @@ export const Sidebar = memo(function Sidebar({ open, onClose, showPaneLayout = f
   const q = query.trim().toLowerCase();
   const sections = useSidebarSections({ simple, rail, density, query: q, label: sectionLabel, sidebarRef, departments: useDepartmentOrder(state.sections, dispatch) });
   const botDrag = useSidebarBotDrag({ dispatch, announce: sections.announce, onNamed: sections.focusHeader, onRenamed: sections.renamed,
-    onError: (text) => setTeamFeedback({ error: true, text }), onCancelled: () => sidebarRef.current?.focus() }), roomDrag = useSidebarRoomDrag({ dispatch, announce: sections.announce, enabled: (sections.interactive || density === "icons") && !phone && !q, groups: state.groups });
+    onError: (text) => setTeamFeedback({ error: true, text }), onCancelled: () => sidebarRef.current?.focus() }), roomDrag = useSidebarRoomDrag({ dispatch, announce: sections.announce, enabled: (sections.interactive || density === "icons") && !q, draggable: !phone, groups: state.groups });
 
   const sideLists = useTeamSideLists(state), matchingBots = sideLists.bots
     .filter((b) => !b.hidden && !isPlaceId(b.id)) // a My Cloud bot open in place is drawn as its own row of the one list
@@ -1216,10 +1248,6 @@ export const Sidebar = memo(function Sidebar({ open, onClose, showPaneLayout = f
       aria-label={t("sidebar.aria")}
       data-native-view-overlay
       data-sidebar
-      onClick={(event) => {
-        // The phone's list covers the whole screen: choosing the bot that is already open has to dismiss it too.
-        if (phone && open && event.target instanceof Element && !(event.target instanceof HTMLInputElement) && event.target.closest("[data-sidebar-bot-row], [data-sidebar-hero]")) onClose();
-      }}
       style={{ "--sidebar-width": `${sizing.width}px`, "--sidebar-max": sidePanelOpen ? "280px" : "calc(100vw - 320px)" } as CSSProperties}
       className={cn(
         "relative flex h-full shrink-0 flex-col border-r-[0.5px] border-edge bg-panel max-md:[--scroll-fade-surface:var(--color-app)]",
@@ -1246,7 +1274,7 @@ export const Sidebar = memo(function Sidebar({ open, onClose, showPaneLayout = f
         style={corner ? undefined : density !== "icons" && lights && !simpleDesk ? { ...windowDragStyle, height: MAC_TRAFFIC_LIGHT_CENTER_Y * 2 } : windowDragStyle}
       >
         {phone ? (
-          <div className="shrink-0" style={windowNoDragStyle}><SidebarProfileMenu iconOnly circle /></div>
+          <div className="shrink-0" style={windowNoDragStyle}><SidebarProfileMenu iconOnly circle archived={archivedEntry} /></div>
         ) : lights ? (
           // The traffic lights span 16-76px of the window; nothing clickable starts before 88px, with the window's rail
           // beside the page or not.
@@ -1285,6 +1313,9 @@ export const Sidebar = memo(function Sidebar({ open, onClose, showPaneLayout = f
           </button>}
           {advanced && inboxSupport === "no" && <SidebarActiveThreads entries={attention} icons={density === "icons"} phone={phone} dispatch={dispatch} />}
           {plusControl}
+          {phone && open && <button type="button" aria-label={t("common.close")} onClick={onClose} className={PHONE_TOP_BUTTON}>
+            <X size={20} aria-hidden="true" />
+          </button>}
         </div>}
       </div>
 
@@ -1553,6 +1584,9 @@ export const Sidebar = memo(function Sidebar({ open, onClose, showPaneLayout = f
       <RoomContextMenu
           menu={roomMenu}
           onClose={() => setRoomMenu(null)}
+          admin={teamSettingsAllowed === true}
+          moveUp={roomMenu && teamSettingsAllowed === true && !remoteClient ? roomDrag.moveAction(roomMenu.groupId, -1) : undefined}
+          moveDown={roomMenu && teamSettingsAllowed === true && !remoteClient ? roomDrag.moveAction(roomMenu.groupId, 1) : undefined}
           onMoveToSection={(groupId) => {
             if (!roomMenu) return;
             setRoomSectionPicker({ groupId, x: roomMenu.x, y: roomMenu.y });

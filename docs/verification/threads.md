@@ -53,10 +53,16 @@ check also verifies step sizing and independent list scrolling when run with
 preview, the three-pane Stop scenario and the filled grid beside the server log.
 
 Run `node --experimental-strip-types scripts/verify-threads.ts --check-pane-resize`
-to resize the framed grid from 1366 to 700 pixels and back. The check covers
-room and bot drafts, a gated reply, an adjusted divider, an empty slot, and
-selecting a different thread from the narrow drawer. It also deletes a thread
-in the disposable fixture while narrow and checks its restored slot is empty.
+to rotate a standalone room detail between 390 and 820 pixels, then use browser
+Back to return to its source. In a four-pane grid, the check narrows from 1366 to
+700 pixels and back, preserving drafts, focus, a divider, and an empty slot.
+An independent HTTP client reads the actual bot and room selections and unread
+thread IDs before and after resizing. A fake reply finishes in a hidden pane:
+widening must leave it unread; explicitly opening it from the drawer must read it.
+A DOM observer checks every rendered narrow pane during a room resize with
+600 ms latency, through a real network round trip. Peer deletion while narrow
+leaves a vacancy, not a resurrected conversation. Narrow and wide screenshots
+are saved beside the disposable server log.
 
 ### Close a split pane in Electron
 

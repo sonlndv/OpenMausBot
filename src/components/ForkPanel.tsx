@@ -1,4 +1,5 @@
 import type { ForkPanelState } from "@/state/fork-panel";
+import { focusChatPane } from "@/state/workspace-chat-context";
 import { ArrowLeft, X } from "lucide-react";
 import { useLayoutEffect, useRef } from "react";
 import { cn } from "@/lib/cn";
@@ -17,9 +18,7 @@ import { PANEL_MIN_WIDTH, useComputerPanelResize } from "./computer-panel-resize
 
 const BESIDE_INBOX_MAX = 400;
 
-/** Any thread beside the chat: a fork, and where the server has the room feed, the room thread a feed row or the Inbox
- * opened. `full`: that room thread takes the feed's place, because the two don't fit side by side; its back button
- * returns to the feed. */
+/** A fork or room thread. A full detail occupies the chat area without replacing its source conversation. */
 export function ForkPanel({ full = false }: { full?: boolean }) {
   const { state, dispatch } = useStore();
   const panel = state.forkPanel;
@@ -34,7 +33,7 @@ export function ForkPanel({ full = false }: { full?: boolean }) {
     if (!panel?.focusComposer || !aside) return;
     if (focusedLoad.current === panel.loadId && document.activeElement !== aside) return;
     focusedLoad.current = panel.loadId;
-    (aside.querySelector<HTMLTextAreaElement>('[data-tour="composer"] textarea:not([disabled])') ?? aside).focus();
+    focusChatPane(aside);
   }, [panel?.focusComposer, panel?.loadId, panel?.loading]);
   const owner = panel ? panelOwner(state, panel) : undefined;
   const group = owner?.group, groupTask = owner?.groupTask;
@@ -46,7 +45,7 @@ export function ForkPanel({ full = false }: { full?: boolean }) {
   const label = fork ? t("chat.forkPanel") : t("room.thread.panel");
   const close = () => dispatch({ type: "closeForkPanel" });
   const roomThread = beside && !fork && Boolean(group);
-  const inPlace = full && roomThread;
+  const inPlace = full;
   return (
     <aside ref={asideRef} tabIndex={panel.focusComposer ? -1 : undefined} aria-label={label} data-thread-panel={panel.threadId}
       data-feed-area={roomThread ? "" : undefined} data-thread-in-place={inPlace ? "" : undefined}
@@ -71,18 +70,18 @@ export function ForkPanel({ full = false }: { full?: boolean }) {
         className="absolute inset-y-0 start-0 z-30 w-1.5 cursor-col-resize hover:bg-accent/40 focus-visible:bg-accent/60"
       />}
       {beside ? (
-        <header className="flex shrink-0 items-center gap-2 py-2.5 ps-4 pe-3">
-          {inPlace && group && <button type="button" aria-label={t("room.thread.backToFeed", { name: group.name })} title={t("room.thread.backToFeed", { name: group.name })}
+        <header className="flex shrink-0 items-center gap-2 py-2.5 ps-4 pe-3 max-md:ps-14">
+          {inPlace && roomThread && group && <button type="button" aria-label={t("room.thread.backToFeed", { name: group.name })} title={t("room.thread.backToFeed", { name: group.name })}
             data-thread-back="" className="ui-icon-button shrink-0" onClick={close}><ArrowLeft size={16} aria-hidden="true" /></button>}
           {!fork && group && groupTask ? <ThreadPanelHeading group={group} task={groupTask} messages={panel.messages} working={Boolean(groupTask.working || groupTask.busyBotId)} work={work.get(panel.threadId)} /> : <div className="min-w-0 flex-1">
             <h2 dir="auto" title={task?.title} className="truncate text-[15px] font-semibold leading-5 text-ink">{fork ? task?.title ?? label : label}</h2>
             <p dir="auto" className="truncate text-[12px] leading-4 text-ink-secondary">{group?.name ?? bot?.name}</p>
           </div>}
-          {!inPlace && <button type="button" aria-label={fork ? t("chat.closeForkPanel") : t("room.thread.close")} title={fork ? t("chat.closeForkPanel") : t("room.thread.close")}
+          {(!inPlace || !roomThread) && <button type="button" aria-label={fork ? t("chat.closeForkPanel") : t("room.thread.close")} title={fork ? t("chat.closeForkPanel") : t("room.thread.close")}
             className="ui-icon-button shrink-0" onClick={close}><X size={16} aria-hidden="true" /></button>}
         </header>
       ) : (
-        <div className="flex items-center justify-between border-b border-hairline px-4 py-2 text-sm font-medium text-ink">
+        <div className="flex items-center justify-between border-b border-hairline px-4 py-2 text-sm font-medium text-ink max-md:ps-14">
           <span className="truncate">{task?.title ?? t("chat.forkPanel")}</span>
           <button type="button" aria-label={t("chat.closeForkPanel")} className="rounded p-1 text-ink-secondary hover:bg-raised hover:text-ink"
             onClick={close}><X size={16} /></button>

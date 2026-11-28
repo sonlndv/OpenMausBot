@@ -31,10 +31,15 @@ export function useBotListDrawer(place: DrawerPlace) {
   const acted = useRef(false);
   const show = useCallback(() => { acted.current = false; setState((s) => ({ ...s, open: true, first: false })); }, []);
   const hide = useCallback(() => setState((s) => ({ ...s, open: false, first: false })), []);
-  const noteAction = useCallback((event: SyntheticEvent) => {
-    if (!(event.target instanceof Element && event.target.closest(KEEPS_LIST_OPEN))) acted.current = true;
-  }, []);
   const leave = useCallback(() => setState((s) => (s.open ? { open: false, fromList: true, first: false } : s)), []);
+  const noteAction = useCallback((event: SyntheticEvent) => {
+    const target = event.target;
+    if (!(target instanceof Element) || target.closest(KEEPS_LIST_OPEN)) return;
+    acted.current = true;
+    const row = target.closest("[data-sidebar-bot-row], [data-sidebar-group-row], [data-thread-label], [data-sidebar-thread-row]");
+    if (!row || row.getAttribute("role") === "checkbox" || target.closest("input, [data-thread-split-menu]")) return;
+    if (event.type === "click" || (row.matches('[data-sidebar-bot-row][role="button"]') && event.nativeEvent instanceof KeyboardEvent && ["Enter", " "].includes(event.nativeEvent.key))) leave();
+  }, [leave]);
   useEffect(() => {
     leave();
   }, [place.selectedId, place.view, leave]);

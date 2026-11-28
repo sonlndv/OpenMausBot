@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { openCommandPalette } from "./CommandPalette";
 import {
   ArrowUpRight,
   Archive,
@@ -11,6 +12,7 @@ import {
   Info,
   HelpCircle,
   Keyboard,
+  Search,
   Laptop,
   LifeBuoy,
   Loader2,
@@ -450,6 +452,7 @@ export function profileMenuItems({
   accounts = [],
   simple,
   onSettings,
+  onPalette,
   onShortcuts,
   onAbout,
   onHelp,
@@ -472,6 +475,7 @@ export function profileMenuItems({
   accounts?: SidebarMenuItem[];
   simple?: { tools: SidebarMenuItem[] };
   onSettings: () => void;
+  onPalette?: () => void;
   onShortcuts: () => void;
   onAbout: () => void;
   onHelp: () => void;
@@ -501,6 +505,7 @@ export function profileMenuItems({
   ];
   const account: SidebarMenuItem = { key: "account", label: header.name, subtitle: header.line, icon: header.avatar, large: true, chevron: true, onSelect: header.onOpen };
   const settings: SidebarMenuItem = { key: "settings", label: t("sidebar.menu.settings"), icon: <SettingsIcon size={16} />, trailing: settingsKeyHint(), onSelect: onSettings };
+  const palette: SidebarMenuItem | null = onPalette ? { key: "palette", label: t("palette.label"), icon: <Search size={16} />, onSelect: onPalette } : null;
   const support: SidebarMenuItem = { key: "support", label: t("sidebar.menu.helpShort"), icon: <LifeBuoy size={16} />, submenu: help, onSelect: () => {} };
   const news: SidebarMenuItem | null = announcements ? { key: "announcements", label: t("announcements.title"), icon: <Megaphone size={16} />, active: announcements.active,
     attention: announcements.unread, onSelect: announcements.onSelect } : null;
@@ -513,8 +518,8 @@ export function profileMenuItems({
       : accounts.filter((item) => item.key === "accounts-sign-out"))];
   // Plan & billing follows Settings (Simple's own places sit between them); both modes end with Help, then Sign out.
   const groups = simple
-    ? [move, present(raised), [account], present(phone, settings), simple.tools, present(plan, switchPlace), present(news, support), out]
-    : [move, present(raised), [account], present(phone, settings, plan), present(switchPlace, news, support), out];
+    ? [move, present(raised), [account], present(phone, settings, palette), simple.tools, present(plan, switchPlace), present(news, support), out]
+    : [move, present(raised), [account], present(phone, settings, palette, plan), present(switchPlace, news, support), out];
   return groups.filter((group) => group.length > 0)
     .flatMap((group, at) => group.map((item, index) => (at > 0 && index === 0 ? { ...item, separatorBefore: true } : item)));
 }
@@ -536,8 +541,8 @@ export function useSimpleAccount(place: WorkspacePlace, owner: string | null, ar
 }
 
 /** `circle` is the phone's round avatar button at the top of the bot list. */
-export function SidebarProfileMenu({ iconOnly = false, rail = false, circle = false, simple: account }: {
-  iconOnly?: boolean; rail?: boolean; circle?: boolean; simple?: SimpleAccount;
+export function SidebarProfileMenu({ iconOnly = false, rail = false, circle = false, simple: account, archived }: {
+  iconOnly?: boolean; rail?: boolean; circle?: boolean; simple?: SimpleAccount; archived?: ArchivedBots;
 } = {}) {
   const { state, dispatch } = useStore();
   const simple = account !== undefined;
@@ -614,10 +619,11 @@ export function SidebarProfileMenu({ iconOnly = false, rail = false, circle = fa
         onPublishedApps: () => dispatch({ type: "showPublishedApps" }),
         onSkillBurgers: skillBurger ? () => dispatch({ type: "showSkillBurgers" }) : undefined,
         onTeamFiles: state.config?.team ? () => dispatch({ type: "showTeamFiles" }) : undefined,
-        archived: account?.archived,
+        archived: account?.archived ?? archived,
       }),
     } } : {}),
     onSettings: () => openSettings("overview"),
+    onPalette: desktop ? undefined : openCommandPalette,
     onShortcuts: () => {
       triggerRef.current?.closest("button")?.focus();
       dispatch({ type: "toggleShortcuts", open: true });

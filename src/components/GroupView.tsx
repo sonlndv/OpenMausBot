@@ -31,7 +31,6 @@ import { FailedTurnRow, MessageBoundary } from "./ChatView";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { useCanReact } from "./Reactions";
 import { ClusterLabel } from "./RoomClusterLabel";
-import { PHONE_LAYOUT, useMediaQuery } from "@/lib/use-media-query";
 import { CancelledTurnRow } from "./CancelledTurnRow";
 import { isCancelledTranscriptRow } from "../../shared/client-cancel";
 import { roomRetryRequest } from "@/lib/room-retry";
@@ -141,10 +140,10 @@ export const Transcript = memo(function Transcript({
   onReply: (message: Message) => void;
 }) {
   const dispatch = useStoreDispatch(), store = useStoreRef(), config = useStoreSelector((s) => s.config), focus = useStoreSelector((s) => s.focusMessage);
-  const phone = useMediaQuery(PHONE_LAYOUT);
   const showThreads = useShowThreads();
   const showToolCalls = showToolCallsEnabled(config);
   const canReact = useCanReact(group.threadId); const teammatePeers = useTeammates().peers;
+  const canFork = canReact && !members.some((bot) => bot.yourAccess === "view");
   const memberOf = (id?: string) => members.find((b) => b.id === id), speakingNow = roomThreadSpeakerId(group, group.threadId);
   const messages = useLiveTranscriptLayout(group.threadId, saved, transcript, useMemo(() => roomLiveSpeaker(members, speakingNow), [members, speakingNow]));
   const folds = useMemo(() => roomTurnFolds(messages), [messages, locale]);
@@ -185,7 +184,7 @@ export const Transcript = memo(function Transcript({
   const textRow = (message: Message, emerging: boolean, eager: boolean) => (
     <RoomTextMessage groupId={group.id} threadId={group.threadId} dm={Boolean(group.dm)} pinned={group.pinnedMessageId === message.id} working={roomBusy}
       message={message} members={members} replyTarget={message.replyToId ? byId.get(message.replyToId) : undefined}
-      emerging={emerging} eager={eager} onReply={onReply} canReact={canReact} phone={phone} locale={locale} localVoice={localVoice} />
+      emerging={emerging} eager={eager} onReply={onReply} canReact={canReact} canFork={canFork} locale={locale} localVoice={localVoice} />
   );
   const unreadIds = useMemo(() => unreadMessageIds(messages, unreadDividerId), [messages, unreadDividerId]);
   let dividerPlaced = false;

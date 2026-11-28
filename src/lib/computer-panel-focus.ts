@@ -3,6 +3,7 @@
  * is a lazy screen, so the intent is recorded on open and taken by the panel's
  * first render, never by a timer on the opener's side. */
 import { useEffect, useRef, type RefObject } from "react";
+import { coarsePointerNow } from "./use-media-query";
 
 export type ComputerPanelOpen = {
   botId: string;
@@ -105,6 +106,6 @@ export function releaseComputerPanelFocus(root: HTMLElement | null, botId: strin
   const target = opener?.botId === botId && opener.element?.isConnected ? opener.element
     : document.querySelector<HTMLElement>('[data-tour="computer"]')
       ?? sidebarBotRow(botId)
-      ?? document.querySelector<HTMLElement>('[data-tour="composer"] textarea');
+      ?? (coarsePointerNow() ? null : document.querySelector<HTMLElement>('[data-tour="composer"] textarea'));
   target?.focus();
 }

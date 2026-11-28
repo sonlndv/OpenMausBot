@@ -5,8 +5,8 @@ import { emptyPane, paneIds, placePane, MAIN_PANE, replacePane, type PaneEdge, t
 import { useStore } from "@/state/store";
 import { PanelChat } from "./ForkPanel";
 
-import { workspaceLayout } from "@/state/fork-panel";
-import { TiledPaneTitle, WorkspaceChatContext } from "@/state/workspace-chat-context";
+import { narrowPanel, workspaceLayout } from "@/state/fork-panel";
+import { focusChatPane, TiledPaneTitle, WorkspaceChatContext } from "@/state/workspace-chat-context";
 import { draggedThread } from "@/lib/workspace-pane-drag";
 
 type Placement = PaneEdge | "fill";
@@ -56,6 +56,7 @@ export function WorkspacePanes({ primary, title, children }: { primary: string; 
   const root = useRef<HTMLDivElement>(null);
   const move = useRef<{ start: number; ratio: number; size: number } | null>(null);
   const focused = panes?.focused;
+  const visibleLayout = desktop ? panes?.layout ?? MAIN_PANE : narrowPanel(state)?.threadId ?? MAIN_PANE;
   const loading = focused && panes?.panels[focused]?.loading;
   const previouslySplit = useRef(false);
   useLayoutEffect(() => {
@@ -64,8 +65,8 @@ export function WorkspacePanes({ primary, title, children }: { primary: string; 
     if (!focused && !restore) return;
     const pane = root.current?.querySelector<HTMLElement>(`[data-pane-id="${CSS.escape(focused ?? MAIN_PANE)}"]`);
     if (!pane || pane.contains(document.activeElement) && pane !== document.activeElement) return;
-    (pane.querySelector<HTMLElement>('[data-tour="composer"] textarea:not(:disabled)') ?? pane).focus({ preventScroll: true });
-  }, [focused, loading, ids.length]);
+    focusChatPane(pane);
+  }, [focused, loading, ids.length, desktop]);
 
   const leaves: ReactNode[] = [];
   const dividers: ReactNode[] = [];
@@ -77,7 +78,7 @@ export function WorkspacePanes({ primary, title, children }: { primary: string; 
       const name = vacant ? t("chat.slot", { number: ids.indexOf(layout) + 1 }) : panel ? owner?.tasks?.find((task) => task.threadId === layout)?.title ?? owner?.name : title;
       const activate = (event: SyntheticEvent) => {
         if (event.target instanceof Element && event.target.closest(".workspace-pane-close")) return;
-        if (panes && focused !== layout) dispatch({ type: "focusPane", id: layout });
+        if (desktop && panes && focused !== layout) dispatch({ type: "focusPane", id: layout });
       };
       const close = () => {
         if (!panes) return;
@@ -109,7 +110,7 @@ export function WorkspacePanes({ primary, title, children }: { primary: string; 
             {panel ? <PanelChat panel={panel} /> : children}
           </TiledPaneTitle>
         </div>}
-        {panes && (layout !== MAIN_PANE || ids.some(id => id !== MAIN_PANE && !emptyPane(id))) &&
+        {desktop && panes && (layout !== MAIN_PANE || ids.some(id => id !== MAIN_PANE && !emptyPane(id))) &&
           <button type="button" aria-label={t("chat.closePane", { title: name ?? "" })} onPointerDown={event => { if (event.button === 0) event.preventDefault(); }} onClick={close}
             className="workspace-pane-close absolute end-2 top-3 z-30 flex size-7 items-center justify-center rounded-full text-ink-secondary hover:bg-raised focus-visible:ring-2 focus-visible:ring-focus"><X size={16} /></button>}
         {preview?.target === layout && <div aria-hidden="true" data-drop-preview={preview.edge}
@@ -152,6 +153,6 @@ export function WorkspacePanes({ primary, title, children }: { primary: string; 
     draw(layout.first, first, path + "0");
     draw(layout.second, second, path + "1");
   }
-  draw(panes?.layout ?? MAIN_PANE, { x: 0, y: 0, w: 100, h: 100 }, "");
+  draw(visibleLayout, { x: 0, y: 0, w: 100, h: 100 }, "");
   return <div ref={root} data-workspace-area={desktop ? "" : undefined} className={desktop ? "relative min-h-0 min-w-0 flex-1" : "contents"}>{leaves}{dividers}</div>;
 }

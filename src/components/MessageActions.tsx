@@ -183,14 +183,19 @@ export function MessageActions({
   useLayoutEffect(() => {
     if (!menuOpen) return;
     const menuBox = menuRef.current?.getBoundingClientRect();
+    const scroll = rootRef.current?.closest(".glass-scroller");
+    const log = rootRef.current?.closest('[role="log"]');
+    const bounds = scroll?.getBoundingClientRect();
+    const top = Math.max(8, bounds?.top ?? 0);
+    const bottom = Math.min(innerHeight - 8, (bounds?.bottom ?? innerHeight) - (log ? parseFloat(getComputedStyle(log).paddingBottom) || 0 : 0));
     if (pointAt && menuBox) {
-      setMenuAbove(pointAt.clientY + menuBox.height > window.innerHeight - 8 && pointAt.clientY - menuBox.height > 8);
+      setMenuAbove(pointAt.clientY + menuBox.height > bottom && pointAt.clientY - top > bottom - pointAt.clientY);
       setMenuFlipped(pointAt.clientX + menuBox.width > window.innerWidth - 8 && pointAt.clientX - menuBox.width >= 8);
       menuRef.current?.querySelector<HTMLButtonElement>("[role=menuitem]:not(:disabled)")?.focus();
       return;
     }
     const more = moreRef.current?.getBoundingClientRect();
-    if (menuBox && more) setMenuAbove(more.bottom + 4 + menuBox.height > window.innerHeight - 8 && more.top - 4 - menuBox.height > 8);
+    if (menuBox && more) setMenuAbove(more.bottom + 4 + menuBox.height > bottom && more.top - top > bottom - more.bottom);
     const rowBox = rootRef.current?.getBoundingClientRect();
     if (menuBox && rowBox) {
       const rtl = getComputedStyle(rootRef.current!).direction === "rtl";

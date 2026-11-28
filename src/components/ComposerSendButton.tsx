@@ -33,6 +33,9 @@ export function ComposerSendButton({ compact, waits, label, title, look, disable
   const alternate = menu?.choices[1] !== "restart" ? menu?.choices[1] : undefined;
   const button = (
     <button
+      onPointerDown={(event) => {
+        if (event.pointerType === "touch" && document.activeElement?.matches('[data-tour="composer"] textarea')) event.preventDefault();
+      }}
       onClick={(event) => onSend(event.metaKey || event.ctrlKey)}
       disabled={disabled}
       aria-label={label}
@@ -40,7 +43,7 @@ export function ComposerSendButton({ compact, waits, label, title, look, disable
       style={waits ? undefined : look.style}
       className={cn(
         "flex shrink-0 items-center justify-center rounded-full disabled:cursor-default",
-        compact ? "size-7 animate-[slot-fade-in_120ms_ease-out]" : "size-8",
+        compact ? "size-7 animate-[slot-fade-in_120ms_ease-out]" : "size-8", "touch:size-10",
         waits ? "bg-raised text-ink-secondary hover:bg-raised-hover" : look.className,
       )}
     >

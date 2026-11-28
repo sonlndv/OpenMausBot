@@ -316,6 +316,13 @@ describe("profileMenuItems", () => {
     expect(build({ phone: null, plan: null }).map((item) => item.key)).toEqual(["account", "settings", "support"]);
   });
 
+  it("opens the command palette only when the host provides it", () => {
+    const onPalette = vi.fn();
+    expect(build().some(item => item.key === "palette")).toBe(false);
+    build({ onPalette }).find(item => item.key === "palette")!.onSelect();
+    expect(onPalette).toHaveBeenCalledOnce();
+  });
+
   it("keeps Check for updates in Help in both modes, and raises a ready update to the top", () => {
     const update = { key: "update", label: "Check for updates", onSelect: noop };
     expect(build({ update }).find((item) => item.key === "support")!.submenu!.map((item) => item.key)).toEqual(["help", "shortcuts", "feedback", "update", "about"]);
@@ -438,6 +445,14 @@ describe("Simple mode's account menu", () => {
     items[3]!.onSelect();
     expect(open).toHaveBeenCalledOnce();
     expect(toolMenuItems({ activeView: "chat", automationsNeedYou: false, onAutomations: noop, onTeamMap: noop, archived: { count: 0, open } }).map((item) => item.key)).toEqual(["automations", "team-map"]);
+  });
+
+  it("offers the team folder independently of the personal cloud folder", () => {
+    const onTeamFiles = vi.fn();
+    const base = { activeView: "team-files", automationsNeedYou: false, onAutomations: noop, onTeamMap: noop } as const;
+    expect(toolMenuItems(base).some(item => item.key === "team-files")).toBe(false);
+    toolMenuItems({ ...base, onTeamFiles }).find(item => item.key === "team-files")!.onSelect();
+    expect(onTeamFiles).toHaveBeenCalledOnce();
   });
 
   it("has Published apps among the tools, after Files and before Archived bots, lit while its page is open", () => {

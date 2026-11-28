@@ -4,7 +4,8 @@ export interface PhoneBackPlace {
   calendar: boolean;
   drawerOpen: boolean;
   panelOpen: boolean;
-  /** A file or app preview covers the chat; it has its own store, apart from the side panels, and closes with them. */
+  threadDetail: boolean;
+  /** A file or app preview covers the chat or thread detail. */
   preview: boolean;
   /** The apps page is open; it stays open under the list unless back closes it. */
   appsPage: boolean;
@@ -12,10 +13,11 @@ export interface PhoneBackPlace {
   drawerSteps: number;
 }
 
-export type PhoneBackStep = "calendar" | "drawer" | "panels" | "apps-page";
+export type PhoneBackStep = "calendar" | "drawer" | "preview" | "thread-detail" | "panels" | "apps-page";
 
 export function phoneBackSteps(place: PhoneBackPlace): number {
-  return (place.calendar ? 1 : 0) + (place.panelOpen || place.preview ? 1 : 0) + place.drawerSteps;
+  const panels = place.threadDetail ? 1 + Number(place.preview) + Number(place.panelOpen) : Number(place.panelOpen || place.preview);
+  return Number(place.calendar) + panels + place.drawerSteps;
 }
 
 /**
@@ -25,6 +27,7 @@ export function phoneBackSteps(place: PhoneBackPlace): number {
 export function phoneBackStep(place: PhoneBackPlace): PhoneBackStep {
   if (place.calendar) return "calendar";
   if (place.drawerOpen) return "drawer";
+  if (place.threadDetail) return place.preview ? "preview" : "thread-detail";
   if (place.panelOpen || place.preview) return "panels";
   return place.appsPage && place.drawerSteps > 0 ? "apps-page" : "drawer";
 }

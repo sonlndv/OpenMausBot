@@ -5,18 +5,30 @@ import { join } from "node:path";
 import { removeTempDir } from "../../server/testing/cleanup.ts";
 import { openHeadlessChrome } from "./headless-chrome.ts";
 
-export async function verifyWorkspacePanes(previewUrl: string, finishGate: string, evidence: string, longActivity: boolean, createFork: () => Promise<string>, deleteDuringResize?: (id: string) => Promise<void>) {
+interface ResizePeer {
+  groupId: string;
+  weekly: string;
+  planning: string;
+  observe(): Promise<{ bot: string; room: string; unread: string[] }>;
+  waitForReply(id: string): Promise<void>;
+  deleteThread(id: string): Promise<void>;
+}
+
+export async function verifyWorkspacePanes(previewUrl: string, finishGate: string, evidence: string, longActivity: boolean, createFork: () => Promise<string>, peer?: ResizePeer) {
   const profile = mkdtempSync(join(tmpdir(), "omb-pane-browser-"));
   const page = await openHeadlessChrome(profile);
   const element = (selector: string) => `document.querySelector(${JSON.stringify(selector)})`;
   const click = async (expression: string) => {
     await page.until(expression);
+    await page.evaluate(`(${expression}).scrollIntoView({block:"nearest", inline:"nearest"})`);
+    await page.until(`(() => { const e = (${expression}), r = e?.getBoundingClientRect();
+      return r && e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })()`, 5000);
     const { x, y } = await page.evaluate(`(() => { const b = (${expression}).getBoundingClientRect(); return {x:b.x+b.width/2,y:b.y+b.height/2} })()`);
     await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
     for (const type of ["mousePressed", "mouseReleased"]) await page.send("Input.dispatchMouseEvent", { type, x, y, button: "left", clickCount: 1 });
   };
   const button = (text: string) => `[...document.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(text)})`;
-  const row = (name: string) => element(`[data-thread-label][title="${name}"]`);
+  const row = (name: string) => element(peer ? `[data-sidebar-thread-row][title^="${name}"]` : `[data-thread-label][title="${name}"]`);
   const pane = (name: string) => `section[aria-label="${name}"]`;
   const stop = (name: string) => element(pane(name) + ' [aria-label="Stop this turn"]');
   const composer = (name: string) => element(pane(name) + ' [data-tour="composer"] textarea');
@@ -80,14 +92,33 @@ export async function verifyWorkspacePanes(previewUrl: string, finishGate: strin
   const first = "Triage Gmail", second = "Triage iCloud", third = "Website ideas", draft = "Keep this website idea";
   try {
     await page.send("Emulation.setDeviceMetricsOverride", { width: 1536, height: 960, deviceScaleFactor: 1, mobile: false });
-    await page.send("Page.navigate", { url: deleteDuringResize ? previewUrl + "?frame=1" : previewUrl });
+    await page.send("Page.navigate", { url: peer ? previewUrl + "?frame=1" : previewUrl });
     await click(button("Not now"));
-    await click(element('[aria-label="Expand Pepper threads"]'));
+    if (!peer) await click(element('[aria-label="Expand Pepper threads"]'));
     await click(row(first));
     await page.until(composer(first));
+    if (peer) {
+      const groupRow = element(`[data-sidebar-group-row="${peer.groupId}"]`);
+      await click(groupRow);
+      await click(element(`[data-feed-thread="${peer.weekly}"] > button:first-child`));
+      const detail = element(`[data-thread-panel="${peer.weekly}"] textarea`);
+      await click(detail);
+      await page.send("Input.insertText", { text: "Room draft" });
+      for (const width of [390, 820, 390]) {
+        await page.send("Emulation.setDeviceMetricsOverride", { width, height: 844, deviceScaleFactor: 1, mobile: false });
+        await page.until(`${detail}?.value === "Room draft" && innerWidth === ${width}`);
+        assert.equal((await peer.observe()).room, peer.planning);
+      }
+      await page.until("history.state?.ombPhoneBack > 0");
+      await page.evaluate("history.back()");
+      await page.until(`!${detail} && ${composer("Launch planning")}`);
+      await page.send("Emulation.setDeviceMetricsOverride", { width: 1366, height: 960, deviceScaleFactor: 1, mobile: false });
+      await click(row(first));
+      await page.until(composer(first));
+    }
     const reading = "Reading list";
     await preset("Four-pane grid");
-    if (deleteDuringResize) {
+    if (peer) {
       const width = (width: number) => page.send("Emulation.setDeviceMetricsOverride", { width, height: 960, deviceScaleFactor: 1, mobile: false });
       const layout = () => page.evaluate(`[...document.querySelectorAll("section[data-pane-id]")].map(e => [e.ariaLabel, e.style.cssText])`);
       const narrow = async (name: string) => {
@@ -108,14 +139,15 @@ export async function verifyWorkspacePanes(previewUrl: string, finishGate: strin
       await drag(row(reading), element('[data-pane-id="slot:1"]'), 0.5, 0.5, "fill");
       await drag(row(third), element('[data-pane-id="slot:2"]'), 0.5, 0.5, "fill");
       await click(element('[data-empty-pane] button'));
+      await page.until(element('[data-empty-pane][data-pane-focused]'));
       const partial = await layout();
       await narrow(first);
       await width(1366);
       await page.until(element('[data-empty-pane][data-pane-focused]'));
       assert.deepEqual(await layout(), partial);
-      await click(element('[aria-label="Expand Launch team threads"]'));
       const weekly = "Weekly review";
-      const roomThread = element('[data-sidebar-thread-row][title^="Weekly review"]');
+      const roomThread = element(`[data-sidebar-thread-row="${peer.weekly}"]`);
+      if (!await page.evaluate(`Boolean(${roomThread})`)) await click(element('[aria-label="Expand Launch team threads"]'));
       await page.until(roomThread);
       await page.evaluate(`${roomThread}.scrollIntoView({block:"nearest"})`);
       await drag(roomThread, element('[data-empty-pane]'), 0.5, 0.5, "fill");
@@ -124,41 +156,64 @@ export async function verifyWorkspacePanes(previewUrl: string, finishGate: strin
       await page.evaluate(`${divider}.focus()`);
       await key("ArrowRight", 39);
       await page.until(`${divider}.getAttribute('aria-valuenow') === '55'`);
-      await type(first, "Finish while narrow");
-      await page.until(stop(first));
+      await type(third, "Finish while narrow");
+      await page.until(stop(third));
       await type(third, draft, false);
-      await type(weekly, "Room draft", false);
+      await page.until(`${composer(weekly)}?.value === "Room draft"`);
       await type(reading, "Read", false);
       const full = await layout();
+      const hiddenId = await page.evaluate(`${element(pane(third))}.dataset.workspaceThread`);
+      const before = await peer.observe();
+      assert.equal(before.room, peer.planning);
+      assert(!before.unread.includes(hiddenId));
       await narrow(reading);
+      assert.deepEqual(await peer.observe(), before);
       await click(composer(reading));
       await page.send("Input.insertText", { text: " later" });
+      await page.until(`${composer(reading)}.value === "Read later"`, 3000);
       writeFileSync(finishGate, "");
+      await peer.waitForReply(hiddenId);
+      const withReply = await peer.observe();
+      assert.deepEqual(withReply, { ...before, unread: [...before.unread, hiddenId].sort() });
       await width(1366);
-      await page.until(`document.activeElement === ${composer(reading)} && ${composer(reading)}?.value === "Read later" && ${reply(first, "Finish while narrow")}`);
+      await page.until(`document.activeElement === ${composer(reading)} && ${composer(reading)}?.value === "Read later" && ${reply(third, "Finish while narrow")}`, 5000);
+      assert.deepEqual(await peer.observe(), withReply);
       assert.deepEqual(await layout(), full);
       await page.until(`${composer(weekly)}?.value === "Room draft" && ${composer(third)}?.value === ${JSON.stringify(draft)}`);
       await click(composer(weekly));
       const network = { offline: false, downloadThroughput: -1, uploadThroughput: -1 };
       await page.send("Network.enable");
       await page.send("Network.emulateNetworkConditions", { ...network, latency: 600 });
-      await width(700);
-      await page.until(`document.querySelectorAll("[data-pane-id]").length === 1 && ${composer("Launch planning")}`);
+      await page.evaluate(`window.wrongRoom = false; window.roomObserver = new MutationObserver(() => {
+        if (innerWidth >= 768) return;
+        const panes = document.querySelectorAll('section[data-pane-id]');
+        if ((panes.length === 1 && panes[0].dataset.workspaceThread !== ${JSON.stringify(peer.weekly)}) || ${composer("Launch planning")}) window.wrongRoom = true;
+      }); window.roomObserver.observe(document.body, { attributes: true, childList: true, subtree: true })`);
+      await narrow(weekly);
+      assert.equal(await page.evaluate(`fetch('/api/bots?messages=0').then(r => r.ok)`), true);
+      assert.deepEqual(await peer.observe(), withReply);
+      assert.equal(await page.evaluate(`window.roomObserver.disconnect(); window.wrongRoom`), false);
+      assert.equal(await page.evaluate(`${element('button[title="Weekly review"][aria-controls]')}.getBoundingClientRect().left >= ${element('[aria-label="Open bot list"]')}.getBoundingClientRect().right`), true, "the drawer button must not cover the projected thread title");
+      writeFileSync(evidence.replace(".png", "-narrow.png"), await page.capture());
       await width(1366);
       await page.until(`document.querySelectorAll("[data-workspace-thread]").length === 4 && document.activeElement === ${composer(weekly)} && ${composer(weekly)}?.value === "Room draft"`);
       assert.deepEqual(await layout(), full);
+      assert.deepEqual(await peer.observe(), withReply);
+      await page.evaluate(`Promise.all(document.getAnimations().filter(a => Number.isFinite(a.effect?.getComputedTiming().endTime)).map(a => a.finished.catch(() => {})))`);
+      writeFileSync(evidence, await page.capture());
       await page.send("Network.emulateNetworkConditions", { ...network, latency: 0 });
       await narrow(weekly);
       await openList();
       await page.evaluate(`${row(third)}.focus()`);
       await key("Enter", 13);
       await page.until(`${composer(third)}?.value === ${JSON.stringify(draft)}`);
+      assert.deepEqual(await peer.observe(), before, "opening the previously hidden thread reads that thread");
       await width(1366);
       await page.until(`document.activeElement === ${composer(third)} && ${composer(weekly)}?.value === "Room draft"`);
       assert.deepEqual(await layout(), full);
       const readingId = await page.evaluate(`${element(pane(reading))}.dataset.workspaceThread`);
       await narrow(third);
-      await deleteDuringResize(readingId);
+      await peer.deleteThread(readingId);
       await page.until(`!${row(reading)}`);
       await openList();
       await page.evaluate(`${row(second)}.focus()`);
@@ -170,7 +225,7 @@ export async function verifyWorkspacePanes(previewUrl: string, finishGate: strin
       assert.equal(await page.evaluate('document.querySelectorAll("[data-empty-pane]").length'), 1);
       assert.equal(await page.evaluate('document.querySelectorAll("[data-workspace-thread]").length'), 3);
       assert.equal(await page.evaluate(`Boolean(${composer(reading)} || ${composer(third)})`), false);
-      console.log("Framed workspace resize passed");
+      console.log("Framed workspace resize passed", JSON.stringify({ before, hiddenReply: withReply }));
       return;
     }
     await drag(row(reading), element('[data-pane-id="slot:1"]'), 0.5, 0.5, "fill");
@@ -336,6 +391,10 @@ export async function verifyWorkspacePanes(previewUrl: string, finishGate: strin
     await page.until(`(${botRow("Miso")}.getBoundingClientRect().y < ${botRow("Pepper")}.getBoundingClientRect().y) !== ${misoFirst}`);
     assert.equal(await page.evaluate("document.querySelectorAll('[data-workspace-thread]').length"), 4);
     console.log(JSON.stringify({ result: "passed", evidence }));
+  } catch (error) {
+    console.error(await page.evaluate(`[...document.querySelectorAll('[data-pane-id]')].map(p => ({ pane: p.ariaLabel,
+      focused: p.contains(document.activeElement), draft: p.querySelector('textarea')?.value, tail: p.innerText.slice(-500) }))`));
+    throw error;
   } finally {
     page.close();
     await page.exited(5000);

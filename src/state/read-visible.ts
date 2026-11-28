@@ -2,6 +2,8 @@ import { botShowsUnread } from "@/lib/bot-unread";
 import { shownChatIsUnread } from "@/lib/shown-chat-unread";
 import type { Action, AppState, BotAnnouncement, Group } from "./store";
 import { serverFetch } from "@/lib/relay-server";
+import { sidebarInlineNow } from "@/lib/use-media-query";
+import { narrowPanel } from "./fork-panel";
 import { roomFeedShows } from "@/lib/room-feed";
 
 /** "seen": only on screen, which a conversation the person marked unread with it open holds against; "open": the person
@@ -122,6 +124,13 @@ const chatShows = (state: AppState, id: string) => id === state.selectedId && st
 function visibleThreadIds(state: AppState, kind: "bot" | "group", ownerId: string, shown?: string): string[] {
   const ids: string[] = [];
   const add = (id: string) => { if (!restoredUnread.has(id) && !ids.includes(id)) ids.push(id); };
+  if (!sidebarInlineNow()) {
+    const panel = narrowPanel(state);
+    if (panel) {
+      if (panel.kind === kind && panel.ownerId === ownerId && (panel === state.forkPanel || state.activeView === "chat")) add(panel.threadId);
+    } else if (shown) add(shown);
+    return ids;
+  }
   if (shown) add(shown);
   const panel = state.forkPanel;
   if (panel?.kind === kind && panel.ownerId === ownerId) add(panel.threadId);

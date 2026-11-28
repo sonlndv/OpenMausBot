@@ -84,8 +84,22 @@ async function connect(url: string) {
     await request("Runtime.enable");
     await request("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
     await request("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+    await request("Page.addScriptToEvaluateOnNewDocument", { source: "localStorage.setItem('openmausbot.sidebarDensity','avatars')" });
     await request("Page.navigate", { url });
+    const drawerButton = `document.querySelector('button[aria-label="Open bot list"]')`;
     await expect.poll(() => evaluate("document.querySelector('textarea[aria-label^=\"Message\"]') !== null"), { timeout: 20_000 }).toBe(true);
+    await evaluate(`${drawerButton}.click()`);
+    const botRow = `document.querySelector('[data-sidebar-bot-row="${bot.id}"]')`;
+    await expect.poll(() => evaluate(`${botRow}?.innerText.includes("Pepper")`)).toBe(true);
+    const sidebarBox = `document.querySelector('[data-sidebar]').getBoundingClientRect()`;
+    await expect.poll(() => evaluate(`${sidebarBox}.right`)).toBe(390);
+    const listShot = await request("Page.captureScreenshot", { format: "png" });
+    writeFileSync(`${logPath}.web-app-list.png`, Buffer.from(listShot.data, "base64"));
+    await evaluate(`${botRow}.click()`);
+    await expect.poll(() => evaluate(`${drawerButton}.getAttribute("aria-expanded")`)).toBe("false");
+    await evaluate(`${drawerButton}.click()`);
+    await evaluate(`document.querySelector('[data-sidebar-top-buttons] button[aria-label="Close"]').click()`);
+    await expect.poll(() => evaluate(`${drawerButton}.getAttribute("aria-expanded")`)).toBe("false");
     // iOS automatically zooms small form text on focus, leaving a standalone
     // window shifted after the keyboard closes. Keep the mention mirror aligned.
     const touchText = await evaluate(`(() => {
@@ -101,10 +115,16 @@ async function connect(url: string) {
     const installability = await request("Page.getInstallabilityErrors");
     expect(installability.installabilityErrors).toEqual([]);
     await expect.poll(() => evaluate("document.querySelector('textarea[aria-label^=\"Message\"]') !== null"), { timeout: 20_000 }).toBe(true);
+    await evaluate(`${drawerButton}.click()`);
+    await request("Emulation.setDeviceMetricsOverride", { width: 820, height: 1180, deviceScaleFactor: 1, mobile: true });
+    await expect.poll(() => evaluate(`${drawerButton}.getAttribute("aria-expanded")`)).toBe("false");
     for (const [width, height, insets] of [[390, 844, { top: 44, bottom: 34, left: 0, right: 0 }],
+      [820, 1180, { top: 24, bottom: 20, left: 0, right: 0 }],
       [844, 390, { top: 0, bottom: 21, left: 44, right: 44 }]] as const) {
       await request("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: true });
       await request("Emulation.setSafeAreaInsetsOverride", { insets });
+      if (width < 768) await expect.poll(() => evaluate(`${sidebarBox}.right`)).toBeLessThanOrEqual(insets.left);
+      else await expect.poll(() => evaluate(`${sidebarBox}.width`)).toBeLessThan(100);
       const box = await evaluate(`(() => { const root=document.getElementById('root').getBoundingClientRect();
         const input=document.querySelector('textarea[aria-label^="Message"]').getBoundingClientRect();
         return {overflow:document.documentElement.scrollWidth>innerWidth, top:input.top, bottom:input.bottom, left:input.left, right:input.right, height:root.height}; })()`);

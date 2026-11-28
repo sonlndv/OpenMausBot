@@ -30,3 +30,7 @@ export const SIDEBAR_INLINE = "(min-width: 768px)";
 
 /** Below Tailwind's md breakpoint: the phone layout, where the sidebar is a full-screen bot list. */
 export const PHONE_LAYOUT = "(max-width: 767.98px)";
+
+export const coarsePointerNow = () => typeof window !== "undefined" && Boolean(window.matchMedia?.("(pointer: coarse)").matches);
+
+export const sidebarInlineNow = () => typeof window === "undefined" || !window.matchMedia || window.matchMedia(SIDEBAR_INLINE).matches;

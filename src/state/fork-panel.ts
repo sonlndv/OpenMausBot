@@ -2,7 +2,6 @@ import { emptyPane, paneIds, placePane, presetLayout, type PaneEdge, type PanePr
 import { api } from "./api";
 import { loadFullThread } from "./message-history";
 import { optimisticMessageId, optimisticUserMessage } from "./optimistic-send";
-import type { ReadReason } from "./read-visible";
 import type { Action, AppState, BotAnnouncement, Group, Message } from "./store";
 
 export interface ForkPanelState {
@@ -29,6 +28,11 @@ export interface WorkspacePanes {
   panels: Record<string, ForkPanelState>;
 }
 
+export function narrowPanel(state: Pick<AppState, "forkPanel" | "workspacePanes">) {
+  const panes = state.workspacePanes;
+  return panes?.panels[panes.focused] ?? state.forkPanel ?? null;
+}
+
 export function threadPanel(state: Pick<AppState, "forkPanel" | "workspacePanes">, id?: string) {
   if (!id) return null;
   return state.workspacePanes?.panels[id] ?? (state.forkPanel?.threadId === id ? state.forkPanel : null);
@@ -52,7 +56,7 @@ export function updatePanel(state: AppState, panel: ForkPanelState): AppState {
 }
 
 export type ForkPanelAction =
-  | { type: "restorePaneLayout"; panes: WorkspacePanes }
+  | { type: "vacatePane"; id: string }
   | { type: "presetPanes"; preset: PanePreset }
   | { type: "movePane"; source: string; target: string; edge: PaneEdge | "fill" }
   | { type: "focusPane"; id: string }
@@ -79,7 +83,18 @@ function workspacePanels(state: AppState): WorkspacePanes["panels"] {
 export function reduceForkPanel(state: AppState, action: ForkPanelAction): AppState {
   switch (action.type) {
     case "forkMessage": return state;
-    case "restorePaneLayout": return { ...state, forkPanel: null, workspacePanes: action.panes };
+    case "vacatePane": {
+      const panes = state.workspacePanes;
+      if (!panes?.panels[action.id]) return state;
+      const ids = paneIds(panes.layout);
+      let slot = 0;
+      while (ids.includes(`slot:${slot}`)) slot++;
+      const vacancy = `slot:${slot}`;
+      const panels = { ...panes.panels };
+      delete panels[action.id];
+      return { ...state, workspacePanes: { panels, layout: replacePane(panes.layout, action.id, vacancy)!,
+        focused: panes.focused === action.id ? vacancy : panes.focused } };
+    }
     case "presetPanes": {
       const layout = presetLayout(workspaceLayout(state), action.preset);
       if (!layout) return state;
@@ -202,7 +217,7 @@ export function removeForkOptimistic(state: AppState, action: Extract<Action, { 
 
 type ForkEffect = Extract<Action, { type: "forkMessage" | "openForkPanel" }>;
 export function runForkEffect(action: ForkEffect, dispatch: (action: Action) => void,
-  rawDispatch: (action: Action) => void, showError: (error: unknown) => void, reason: ReadReason = "open"): void {
+  rawDispatch: (action: Action) => void, showError: (error: unknown) => void): void {
   if (action.type === "forkMessage") {
     const owner = action.kind === "bot" ? "bots" : "groups";
     const latest = action.messageId === undefined;
@@ -223,7 +238,7 @@ export function runForkEffect(action: ForkEffect, dispatch: (action: Action) => 
     return;
   }
   const owner = action.kind === "bot" ? "bots" : "groups";
-  void api(`/api/${owner}/${action.ownerId}/read`, { method: "POST", body: JSON.stringify({ threadId: action.threadId, reason }) }).catch(() => {});
+  void api(`/api/${owner}/${action.ownerId}/read`, { method: "POST", body: JSON.stringify({ threadId: action.threadId, reason: "open" }) }).catch(() => {});
   const loadId = action.loadId ?? "";
   void loadFullThread(action.threadId).then(({ messages, activeLeafId }) => {
     rawDispatch({ type: "forkPanelLoaded", threadId: action.threadId, loadId, messages, activeLeafId });

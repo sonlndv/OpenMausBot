@@ -1,14 +1,17 @@
-import { FolderOpen, Hamburger, LayoutGrid, Puzzle, Rocket, Search, UsersRound, X, Zap } from "lucide-react";
+import { AppWindow, Globe, LayoutGrid, Puzzle, Search, X } from "lucide-react";
 
 import { useCloudFilesReady } from "@/lib/cloud-files";
 import { t } from "@/lib/i18n";
 import { useFeature } from "@/lib/use-feature";
+import { useAdvancedMode } from "@/lib/interface-mode";
+import { useWebPanels } from "@/lib/web-panel-preferences";
 import { useStore } from "@/state/store";
 
 import { CloudRoomCard } from "./CloudRoomCard";
 import { CloudUsageCard } from "./CloudUsageMeter";
 import { useAutomationsNeedYou } from "./SidebarFooterNav";
 import { SidebarPopoverMenu, type SidebarMenuItem } from "./SidebarPopoverMenu";
+import { toolMenuItems } from "./SidebarProfileMenu";
 import { UpdateIndicator } from "./UpdateIndicator";
 
 /** The phone's bottom bar: a round button for the tools that are rows in the desktop sidebar, and a search pill. */
@@ -17,36 +20,18 @@ export function SidebarPhoneBar({ query, onQuery }: { query: string; onQuery: (q
   const automationsNeedYou = useAutomationsNeedYou();
   const filesReady = useCloudFilesReady();
   const skillBurger = useFeature("skillBurger");
+  const advanced = useAdvancedMode();
+  const panels = useWebPanels();
   const items: SidebarMenuItem[] = [
-    {
-      key: "automations",
-      label: t("sidebar.nav.automations"),
-      icon: <Zap size={18} />,
-      active: state.activeView === "routines",
-      attention: automationsNeedYou,
-      onSelect: () => dispatch({ type: "showRoutines", view: "list" }),
-    },
-    {
-      key: "team-map",
-      label: t("sidebar.nav.teamMap"),
-      icon: <UsersRound size={18} />,
-      active: state.activeView === "team-map",
-      onSelect: () => dispatch({ type: "showTeamMap" }),
-    },
-    ...(filesReady ? [{
-      key: "files",
-      label: t("sidebar.nav.files"),
-      icon: <FolderOpen size={18} />,
-      active: state.activeView === "files",
-      onSelect: () => dispatch({ type: "showFiles" }),
-    }] : []),
-    {
-      key: "published-apps",
-      label: t("sidebar.nav.publishedApps"),
-      icon: <Rocket size={18} />,
-      active: state.activeView === "published-apps",
-      onSelect: () => dispatch({ type: "showPublishedApps" }),
-    },
+    ...toolMenuItems({
+      activeView: state.activeView, automationsNeedYou,
+      onAutomations: () => dispatch({ type: "showRoutines", view: "list" }),
+      onTeamMap: () => dispatch({ type: "showTeamMap" }),
+      onFiles: filesReady ? () => dispatch({ type: "showFiles" }) : undefined,
+      onPublishedApps: () => dispatch({ type: "showPublishedApps" }),
+      onSkillBurgers: skillBurger ? () => dispatch({ type: "showSkillBurgers" }) : undefined,
+      onTeamFiles: state.config?.team ? () => dispatch({ type: "showTeamFiles" }) : undefined,
+    }),
     {
       key: "apps",
       label: t("sidebar.nav.apps"),
@@ -54,13 +39,12 @@ export function SidebarPhoneBar({ query, onQuery }: { query: string; onQuery: (q
       active: state.pluginsOpen,
       onSelect: () => dispatch({ type: "togglePlugins", open: true }),
     },
-    ...(skillBurger ? [{
-      key: "skill-burgers",
-      label: t("skillBurger.list.title"),
-      icon: <Hamburger size={18} />,
-      active: state.activeView === "skill-burgers",
-      onSelect: () => dispatch({ type: "showSkillBurgers" }),
-    }] : []),
+    ...(advanced ? panels.map((panel) => ({
+      key: `web-panel-${panel.id}`, label: panel.name,
+      icon: panel.page ? <AppWindow size={16} /> : <Globe size={16} />,
+      active: state.activeView === "web-panel" && state.webPanelId === panel.id,
+      onSelect: () => dispatch({ type: "showWebPanel", id: panel.id }),
+    })) : []),
   ];
   return (
     <div data-sidebar-phone-bar className="px-3 pb-3 pt-1">

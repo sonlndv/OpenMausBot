@@ -15,6 +15,10 @@ window and uses the same workspace, conversations and pairing as the browser.
    apps in separate storage, pair this new window too. Installation does not
    grant access to a workspace by itself.
 
+On a narrow iPad window or phone, the bot list opens full screen with names.
+Tap **Close** to return to the chat without picking another bot. Widen the
+window and the sidebar returns beside the chat with its previous width.
+
 The installed start address is the workspace root; pairing codes and URL tokens
 are not saved in the manifest. Use a new pairing invitation if access expires
 or the device is revoked.

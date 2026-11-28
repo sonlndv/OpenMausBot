@@ -1,5 +1,5 @@
 import { roomFeedEnabled } from "@/lib/feature-flags";
-import { SIDEBAR_INLINE } from "@/lib/use-media-query";
+import { sidebarInlineNow } from "@/lib/use-media-query";
 import { api } from "@/state/api";
 import type { Action, AppState, Group } from "@/state/store";
 
@@ -7,11 +7,9 @@ export type FeedRoom = Pick<Group, "dm"> & { messages?: readonly unknown[] };
 type ThreadOwner = { id: string; threadId: string; dm?: boolean; tasks?: ReadonlyArray<{ threadId: string }> };
 type FeedState = Partial<Pick<AppState, "config" | "workspacePanes">>;
 
-const wideWindow = () => typeof window === "undefined" || typeof window.matchMedia !== "function" || window.matchMedia(SIDEBAR_INLINE).matches;
-
 /** A room shows its threads as one feed, with the open one beside it, where its server has the feed and the window is
  * wide enough for the thread beside it. A bot-to-bot room and an explicitly tiled workspace show transcripts. */
-export function roomFeedShows(state: FeedState, group: FeedRoom | undefined, wide = wideWindow()): boolean {
+export function roomFeedShows(state: FeedState, group: FeedRoom | undefined, wide = sidebarInlineNow()): boolean {
   return group !== undefined && !group.dm && !state.workspacePanes && roomFeedEnabled(state.config) && wide;
 }
 

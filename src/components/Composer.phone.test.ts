@@ -92,6 +92,32 @@ afterEach(() => {
 });
 
 describe("the phone composer", () => {
+  it("keeps Send above a visual-only keyboard resize without moving it on pinch zoom", () => {
+    const viewport = Object.assign(new EventTarget(), { height: 844, offsetTop: 0, scale: 1 });
+    vi.stubGlobal("visualViewport", viewport);
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(pointer: coarse)" || query.includes("max-width"), addEventListener() {}, removeEventListener() {},
+    }));
+    vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(844);
+    container.classList.add("chat-column-dock");
+    vi.spyOn(container, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 754, 390, 56));
+    restoreComposerDraft(`bot:${bot.id}:${bot.threadId}`, { text: "still writing", attachments: [] });
+    render({ bot });
+    viewport.height = 480;
+    viewport.dispatchEvent(new Event("resize"));
+    expect(container.style.getPropertyValue("--composer-keyboard-inset")).toBe("330px");
+    viewport.offsetTop = 30;
+    viewport.dispatchEvent(new Event("scroll"));
+    expect(container.style.getPropertyValue("--composer-keyboard-inset")).toBe("300px");
+    viewport.scale = 2;
+    viewport.dispatchEvent(new Event("resize"));
+    expect(container.style.getPropertyValue("--composer-keyboard-inset")).toBe("");
+    Object.assign(viewport, { height: 844, offsetTop: 0, scale: 1 });
+    viewport.dispatchEvent(new Event("resize"));
+    expect(container.style.getPropertyValue("--composer-keyboard-inset")).toBe("");
+    expect(container.querySelector("textarea")?.value).toBe("still writing");
+  });
+
   it("shows only the + and the pill in Simple mode, with an inverse voice button", () => {
     render({ bot });
     expect(plus()).not.toBeNull();

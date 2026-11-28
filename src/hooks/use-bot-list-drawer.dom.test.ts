@@ -17,6 +17,7 @@ function Shell({ place }: { place: DrawerPlace }) {
     h("aside", { "data-back-steps": drawer.backSteps },
       h("div", { "data-team-side": "me" }, h("button", { "data-option": "team" })),
       h("button", { "data-row": "thread" }),
+      h("button", { "data-sidebar-bot-row": "scout" }),
       h("button", { "data-row": "close", onClick: drawer.hide })),
     h("button", { "data-back": "", onClick: drawer.back }));
 }
@@ -122,6 +123,14 @@ it("goes back from a chat picked in the list to the list, and from there out of 
   await press("[data-back]");
   expect(expanded()).toBe("true");
   expect(backSteps(), "the list is the first screen now").toBe(0);
+});
+
+it("returns to the list even when the person chose the already visible conversation", async () => {
+  await press('[aria-label="Open bot list"]');
+  await press("[data-sidebar-bot-row]");
+  expect(expanded()).toBe("false");
+  await press("[data-back]");
+  expect(expanded()).toBe("true");
 });
 
 it("counts the list opened over a picked chat as one more step", async () => {

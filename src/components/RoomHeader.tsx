@@ -224,7 +224,7 @@ export function RoomHeader({
         className={cn(
           // A container query never matches the container itself, so the row that wraps is the child below.
           "@container/roomhead",
-          paneTitle ? "px-3 py-2" : "px-5 py-3 pl-14 md:pl-5",
+          paneTitle ? "px-3 py-2 max-md:pl-14" : "px-5 py-3 pl-14 md:pl-5",
         )}
       >
         <div data-roomhead-row className={paneTitle ? "flex flex-col gap-1" : "flex items-center justify-between @max-3xl/roomhead:flex-wrap @max-3xl/roomhead:gap-y-1"}>

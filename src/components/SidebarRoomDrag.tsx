@@ -58,10 +58,11 @@ const onRoomRow = (target: EventTarget, groupId: string) =>
 /** Dragging a room up or down inside the sidebar list it is in (a department, Rooms, Bot chats), and Alt+Up/Down on
  * its row. Owners and admins only, and not while a search hides some rooms. Call it once per draw, before `list`
  * names the rooms each list shows (in order) and `wrap` puts each room's row in its drop target. */
-export function useSidebarRoomDrag({ dispatch, announce, enabled, groups }: {
+export function useSidebarRoomDrag({ dispatch, announce, enabled, draggable, groups }: {
   dispatch: Dispatch<Action>;
   announce: (text: string) => void;
   enabled: boolean;
+  draggable: boolean;
   groups: Group[];
 }) {
   const mayMove = useMayMoveBots();
@@ -71,7 +72,7 @@ export function useSidebarRoomDrag({ dispatch, announce, enabled, groups }: {
   latest.current = { enabled: enabled && mayMove, lists: [], groups };
   const actions = useRef({ dispatch, announce });
   actions.current = { dispatch, announce };
-  const controller = useRef<{ row(groupId: string): RowHandlers; listOf(groupId: string): string[] | undefined } | null>(null);
+  const controller = useRef<{ row(groupId: string): RowHandlers; listOf(groupId: string): string[] | undefined; move(groupId: string, direction: -1 | 1): void } | null>(null);
 
   if (!controller.current) {
     const rows = new Map<string, RowHandlers>();
@@ -139,6 +140,7 @@ export function useSidebarRoomDrag({ dispatch, announce, enabled, groups }: {
     controller.current = {
       row: (groupId) => rows.get(groupId) ?? rows.set(groupId, row(groupId)).get(groupId)!,
       listOf,
+      move: (id, direction) => apply(id, stepRoom(listOf(id) ?? [], id, direction), true),
     };
   }
   const { row, listOf } = controller.current;
@@ -149,6 +151,11 @@ export function useSidebarRoomDrag({ dispatch, announce, enabled, groups }: {
       if (items.length > 1) latest.current.lists.push(items.map((item) => item.id));
       return items;
     },
+    moveAction(groupId: string, step: -1 | 1) {
+      const list = listOf(groupId);
+      if (!latest.current.enabled || !list || !list[list.indexOf(groupId) + step]) return undefined;
+      return () => controller.current!.move(groupId, step);
+    },
     /** A room's row (and its open thread list) inside its drop target, which takes drags only while rooms may move.
      * The target is always there, so the row is not remounted when moving turns on or off, and it lays its children out
      * like the sidebar list around it, so nothing moves on screen. */
@@ -156,7 +163,7 @@ export function useSidebarRoomDrag({ dispatch, announce, enabled, groups }: {
       const on = latest.current.enabled && Boolean(listOf(groupId));
       const place = on && drop?.groupId === groupId ? drop.place : null;
       return (
-        <div key={groupId} className={cn("relative flex flex-col [gap:inherit]", botRowDropClass(place, on && dragging === groupId))} {...(on ? row(groupId) : {})}>
+        <div key={groupId} className={cn("relative flex flex-col [gap:inherit]", botRowDropClass(place, on && dragging === groupId))} {...(on ? draggable ? row(groupId) : { onKeyDown: row(groupId).onKeyDown } : {})}>
           <BotDropLine place={place} />
           {item}
         </div>

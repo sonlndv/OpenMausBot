@@ -1,3 +1,6 @@
+import { narrowPanel } from "./fork-panel";
+import { sidebarInlineNow } from "@/lib/use-media-query";
+
 import { notificationTrayPinned } from "@/lib/notification-preferences";
 import type { Action, AppState } from "./store";
 import { openOwnTeamChat, teamChats } from "./team-chats";
@@ -24,7 +27,10 @@ export function visibleNotificationThread(
 ): string | null {
   if (threadId && state.forkPanel?.threadId === threadId) return threadId;
   if (state.activeView !== "chat") return null;
-  if (threadId && state.workspacePanes?.panels[threadId]) return threadId;
+  if (!sidebarInlineNow()) {
+    const panel = narrowPanel(state);
+    if (panel) return panel.threadId;
+  } else if (threadId && state.workspacePanes?.panels[threadId]) return threadId;
   const room = state.groups.find((candidate) => candidate.id === state.selectedId);
   if (room && roomFeedShows(state, room)) return null;
   return state.bots.find((candidate) => candidate.id === state.selectedId)?.threadId ?? room?.threadId ?? null;

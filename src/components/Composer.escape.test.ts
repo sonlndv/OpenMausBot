@@ -149,6 +149,21 @@ describe("Escape in the composer", () => {
     expect(document.activeElement).not.toBe(input);
   });
 
+  it("keeps a touch draft without reopening the keyboard after file intake", async () => {
+    const media = window.matchMedia.bind(window);
+    vi.spyOn(window, "matchMedia").mockImplementation(query =>
+      query === "(pointer: coarse)" ? { matches: true } as MediaQueryList : media(query));
+    const input = render();
+    await nextFrame();
+    expect(document.activeElement).not.toBe(input);
+    focusWith(input, "unfinished");
+    pasteFile(input);
+    input.blur();
+    await finishIntake();
+    expect(document.activeElement).not.toBe(input);
+    expect(input.value).toBe("unfinished");
+  });
+
   it("stays out of the composer when Escape comes between a finished paste and its refocus", async () => {
     const frames: FrameRequestCallback[] = [];
     const runFrames = () => frames.splice(0).forEach((frame) => frame(0));

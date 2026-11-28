@@ -52,7 +52,7 @@ interface RoomTextMessageProps {
   eager: boolean;
   onReply: (message: Message) => void;
   canReact: boolean;
-  phone: boolean;
+  canFork: boolean;
   /** Drawn again in a new language. */
   locale: string;
   localVoice: boolean;
@@ -81,7 +81,7 @@ export const RoomTextMessage = memo(function RoomTextMessage({
   eager,
   onReply,
   canReact,
-  phone,
+  canFork,
   localVoice,
 }: RoomTextMessageProps) {
   const m = useLiveRow(threadId, row);
@@ -111,7 +111,7 @@ export const RoomTextMessage = memo(function RoomTextMessage({
   const speakerBot = members.find((member) => member.id === m.from?.botId);
   const botText = rawText; const teammates = useTeammates(); const peers = useMemo(() => [...members, ...teammates.peers], [members, teammates]);
   const pin = roomPin({ id: groupId, pinnedMessageId: pinned ? m.id : undefined }, m, dispatch);
-  const forkAction = !phone && !dm && m.kind === "text" && !m.id.startsWith("optimistic-")
+  const forkAction = canFork && !dm && m.kind === "text" && !m.id.startsWith("optimistic-")
     ? [forkMessageItem({ kind: "group", ownerId: groupId, threadId, messageId: m.id }, dispatch, working)] : [];
   const botMenu = useBotMessageMenu({
     text: botText,
@@ -238,7 +238,7 @@ export const RoomTextMessage = memo(function RoomTextMessage({
         </span>
       </div>
       <ReactionChips threadId={threadId} message={m} bots={members} align={user ? "end" : "start"} canReact={canReact} />
-      <ForkLinks kind="group" ownerId={groupId} threadId={threadId} messageId={m.id} phone={phone} />
+      <ForkLinks kind="group" ownerId={groupId} threadId={threadId} messageId={m.id} />
       {!user && m.routedBy && <RoutedByLine routedBy={m.routedBy} />}
     </div>
   );

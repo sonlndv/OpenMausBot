@@ -15,7 +15,10 @@ vi.mock("./GroupView", () => ({ GroupView: ({ group, bare }: { group: Group; bar
 
 import { ForkPanel, PanelChat } from "./ForkPanel";
 
-it.each(["bot", "group"] as const)("moves focus from the source to a newly created %s fork", (kind) => {
+it.each([["bot", false], ["group", false], ["bot", true], ["group", true]] as const)("moves focus into a %s fork (coarse pointer: %s)", (kind, coarse) => {
+  const media = window.matchMedia.bind(window);
+  const mock = vi.spyOn(window, "matchMedia").mockImplementation(query =>
+    query === "(pointer: coarse)" ? { matches: coarse } as MediaQueryList : media(query));
   const input = document.createElement("textarea");
   const container = document.createElement("div");
   document.body.append(input, container);
@@ -29,10 +32,11 @@ it.each(["bot", "group"] as const)("moves focus from the source to a newly creat
     expect(document.activeElement).toBe(container.querySelector("aside"));
     store.state = { ...store.state, forkPanel: { ...panel, loading: false } };
     flushSync(() => root.render(createElement(ForkPanel)));
-    expect(document.activeElement).toBe(container.querySelector("textarea"));
+    expect(document.activeElement).toBe(container.querySelector(coarse ? "aside" : "textarea"));
   } finally {
     flushSync(() => root.unmount());
     input.remove();
+    mock.mockRestore();
     container.remove();
   }
 });

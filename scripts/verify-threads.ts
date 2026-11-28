@@ -1,4 +1,5 @@
 // Full app, real routes and fake provider in one disposable home.
+import { setTimeout as delay } from "node:timers/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { writeFileSync } from "node:fs";
@@ -41,8 +42,16 @@ try {
   const { group } = await api("POST", "/api/groups", { name: "Launch team", memberIds: [pepper.id, miso.id] });
   if (checkResize) await api("PATCH", `/api/groups/${group.id}/setup`, { action: "skip" });
   const { task: planning } = await api("POST", `/api/groups/${group.id}/tasks`, { title: "Launch planning" });
-  await api("POST", `/api/groups/${group.id}/tasks`, { title: "Weekly review" });
-  if (checkResize) await api("POST", `/api/groups/${group.id}/tasks/${planning.threadId}`, {});
+  const { task: weekly } = await api("POST", `/api/groups/${group.id}/tasks`, { title: "Weekly review" });
+  if (checkResize) {
+    await api("POST", `/api/groups/${group.id}/messages`, { threadId: weekly.threadId, text: "Weekly fixture detail" });
+    const deadline = Date.now() + 15_000;
+    while ((await api("GET", "/api/bots?messages=0")).bots.some((bot: { busy?: boolean }) => bot.busy)) {
+      if (Date.now() >= deadline) throw Error("Weekly fixture detail did not finish");
+      await delay(100);
+    }
+    await api("POST", `/api/groups/${group.id}/tasks/${planning.threadId}`, {});
+  }
   await api("POST", `/api/bots/${pepper.id}/tasks/${gmailThread}`, {});
 
   const fakeCli = fileURLToPath(new URL("../server/testing/fake-claude-cli.ts", import.meta.url));
@@ -88,7 +97,18 @@ try {
     await verifyWorkspacePanes(ui.previewUrl, finishGate, fixture.info.logPath + ".panes.png", longActivity, async () => {
       const { task } = await api("POST", `/api/bots/${pepper.id}/tasks/${pepper.threadId}/forks`, { latest: true });
       return task.threadId;
-    }, checkResize ? async id => { await api("DELETE", `/api/bots/${pepper.id}/tasks/${id}`); } : undefined);
+    }, checkResize ? {
+      groupId: group.id, weekly: weekly.threadId, planning: planning.threadId,
+      deleteThread: async id => { await api("DELETE", `/api/bots/${pepper.id}/tasks/${id}`); },
+      waitForReply: async id => { await control(["wait", "--bot", pepper.id, "--task", id, "--timeout", "15"]); },
+      observe: async () => {
+        const snapshot = await api("GET", "/api/bots?messages=0");
+        const bot = snapshot.bots.find((b: { id: string }) => b.id === pepper.id);
+        const room = snapshot.groups.find((g: { id: string }) => g.id === group.id);
+        const unread = [...bot.tasks, ...room.tasks].filter(t => t.unread).map(t => t.threadId as string).sort();
+        return { bot: bot.threadId as string, room: room.threadId as string, unread };
+      },
+    } : undefined);
   } else if (process.argv.includes("--check-pane-close")) {
     const { default: electron } = await import("electron");
     const script = fileURLToPath(new URL("./testing/workspace-pane-close.cjs", import.meta.url));

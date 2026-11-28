@@ -8,7 +8,7 @@ import { Mic, Square } from "lucide-react";
 import { sameFields, useStoreDispatch, useStoreSelector } from "@/state/store-select"; import { useStoreRef } from "@/state/store-ref"; import { sameDrawnBots } from "@/lib/drawn-bots";
 import { visibleMessages, currentTaskBot, type Action, type Bot, type Group, type InstanceInfo, type Message } from "@/state/store";
 import { cn } from "@/lib/cn";
-import { PHONE_LAYOUT, useMediaQuery } from "@/lib/use-media-query";
+import { coarsePointerNow, PHONE_LAYOUT, useMediaQuery } from "@/lib/use-media-query";
 import { useMenuMotion } from "./MenuMotion";
 import { ELEVATED_CARD, ELEVATED_COMPOSER, ELEVATED_FLOAT } from "./elevated";
 import { uploadDraftImage } from "@/lib/composer-uploads";
@@ -78,7 +78,7 @@ import { PlaceMark } from "./PlaceChip";
 import type { Place } from "@/lib/place";
 import { PhonePlus } from "./PhonePlus";
 import { useThreadApproval } from "./thread-approval";
-import { useTallPill } from "./composer-wrap";
+import { useComposerKeyboardInset, useTallPill } from "./composer-wrap";
 import { ComposerReplyStrip } from "./ReplyQuote";
 import { escapeCancelsReply } from "@/lib/replies";
 import { useThreadRefs } from "./ThreadRefs";
@@ -153,6 +153,7 @@ export function Composer({
   const groupBusyBotId = currentGroupTask?.busyBotId ?? (currentGroupTask?.working ? group?.busyBotId : (group?.threadId === threadId ? group?.busyBotId : null));
   const groupWorking = group ? openTaskWorking(group) : false;
   const busy = group ? Boolean(groupWorking || groupBusyBotId) : Boolean(bot?.busy);
+  const separateActionRow = stacked || (singleRow && busy);
   const steerInstanceId = group
     ? members?.find((member) => member.id === groupBusyBotId)?.modelSelection.instanceId
     : bot?.modelSelection.instanceId;
@@ -179,7 +180,7 @@ export function Composer({
     draftId,
     !group && bot && !state.config?.team ? `bot:${bot.id}` : undefined,
   );
-  const forkOwnerId = composerForkOwner({ phone: singleRow, group, botId: bot?.id, threadId: threadId && !isNewChatThread(threadId) ? threadId : undefined, startsThread: Boolean(onSendGroup) });
+  const forkOwnerId = composerForkOwner({ group, botId: bot?.id, threadId: threadId && !isNewChatThread(threadId) ? threadId : undefined, startsThread: Boolean(onSendGroup) });
   const attachmentPending = useDraftAttachmentPending(draftId);
   const failedSends = useFailedComposerSends(draftId); const picks = mentionPicksFor(draftId);
   const [channelMode, setChannelMode] = useComposerChannelMode(draftId);
@@ -240,6 +241,7 @@ export function Composer({
   const micShown = !locked && !busy && micReady;
   const [caret, setCaret] = useState(0);
   const shellRef = useRef<HTMLDivElement>(null);
+  useComposerKeyboardInset(shellRef);
   const tall = useTallPill(shellRef, simpleDock);
   const multiline = simpleDock && (tall || text.includes("\n"));
   const [highlight, setHighlight] = useState(0);
@@ -252,6 +254,7 @@ export function Composer({
   caretRef.current = caret;
   const escapeBlurs = useRef(0);
   const refocusInput = useCallback((escapesBefore: number) => {
+    if (coarsePointerNow()) return;
     requestAnimationFrame(() => {
       const input = inputRef.current;
       if (escapeBlurs.current !== escapesBefore || !input || input.disabled || !composerShouldRefocus(document.activeElement, input)) return;
@@ -262,10 +265,10 @@ export function Composer({
   }, []);
   // Touch screens are skipped: focusing there pops the on-screen keyboard over the conversation.
   useEffect(() => {
-    if (window.matchMedia?.("(hover: none) and (pointer: coarse)").matches) return;
+    if (coarsePointerNow()) return;
     const frame = requestAnimationFrame(() => {
       const input = inputRef.current;
-      if (!input || input.disabled || !composerTakesFocusOnOpen(document.activeElement, input)) return;
+      if (!input || input.disabled || input.closest("[data-workspace-thread]") || !composerTakesFocusOnOpen(document.activeElement, input)) return;
       input.focus();
       input.setSelectionRange(input.value.length, input.value.length);
     });
@@ -277,7 +280,7 @@ export function Composer({
     const previous = focusedReplyRef.current;
     focusedReplyRef.current = replyToId;
     if (!replyTargetTakesFocus(previous, replyToId)) return;
-    if (window.matchMedia?.("(hover: none) and (pointer: coarse)").matches) return;
+    if (coarsePointerNow()) return;
     const frame = requestAnimationFrame(() => {
       const input = inputRef.current;
       if (!input || input.disabled || !composerTakesFocusOnOpen(document.activeElement, input)) return;
@@ -798,9 +801,9 @@ export function Composer({
             />
           </div>
         )}
-        <div className={singleRow ? cn("min-w-0 flex-1 rounded-[26px] px-3 py-1.5", ELEVATED_FLOAT) : "contents"}>
+        <div className={singleRow ? cn("min-w-0 flex-1 px-3 py-1.5", separateActionRow ? "rounded-[18px]" : "rounded-[26px]", ELEVATED_FLOAT) : "contents"}>
         {replyTo && <ComposerReplyStrip message={replyTo} fallbackName={bot?.name} onClear={onClearReply} />}
-        <div data-composer-row className={cn("flex items-end", simpleDock ? "gap-1.5" : stacked ? "flex-wrap gap-x-1 gap-y-1.5" : "gap-1")}>
+        <div data-composer-row className={cn("flex items-end", simpleDock ? "gap-1.5" : separateActionRow ? "flex-wrap gap-x-1 gap-y-1.5" : "gap-1")}>
           <input
             ref={fileInput}
             type="file"
@@ -822,7 +825,7 @@ export function Composer({
             </div>
           )}
           <MentionTextarea
-          wrapperClassName={stacked ? "basis-full" : undefined} ghost={suggestion.text ? <SuggestedReplyGhost text={suggestion.text} onUse={suggestion.accept} /> : undefined}
+          wrapperClassName={separateActionRow ? "basis-full" : undefined} ghost={suggestion.text ? <SuggestedReplyGhost text={suggestion.text} onUse={suggestion.accept} /> : undefined}
           inputRef={inputRef}
           peers={[...(group ? members ?? [] : bots.filter((member) => member.id !== bot?.id)), ...teammates.peers]}
           everyone={Boolean(group && !group.dm)}
@@ -841,6 +844,7 @@ export function Composer({
           onClick={(e) => setCaret((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
           onKeyDown={(e) => {
             // An input method's confirming Enter and arrows pick its own candidates, not a mention or command.
+            if (e.key === "Enter" && !e.code && !e.ctrlKey && !e.metaKey && !e.shiftKey && coarsePointerNow()) return;
             if (imeComposing(e.nativeEvent) || suggestion.onKeyDown(e)) return;
             const submitsFork = fork.command && commandCandidates[highlight]?.id === "fork" && sendsMessage(e.nativeEvent, sendKey);
             // A complete /archive or /delete is its own action: Enter runs it instead of only completing the word.
@@ -940,7 +944,7 @@ export function Composer({
               callBotId={callShown && bot && !group && !placed ? bot.id : undefined}
               onPin={pinPlace} />
           )}
-          <div data-composer-actions className={cn("flex items-center", simpleDock ? "gap-2" : "gap-1", stacked && "ms-auto")}>
+          <div data-composer-actions className={cn("flex items-center", simpleDock ? "gap-2" : "gap-1", separateActionRow && "ms-auto")}>
           {(simpleDock ? stoppable : busy && mayStop) && !locked && (
           <button
             onClick={interruptTurn}

@@ -27,7 +27,6 @@ export interface ChatRows {
   onBranch: (messageId: string) => boolean;
   conversational: boolean; simple?: boolean; canReact: boolean;
   openedAt: number;
-  phone: boolean;
 }
 
 export const ChatRowsContext = createContext<ChatRows | null>(null);

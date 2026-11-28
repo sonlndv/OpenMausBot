@@ -74,6 +74,7 @@
    the native editor at a readable touch size. */
 @media (pointer: coarse) {
   .mention-editor textarea { font-size: 16px; }
+  .chat-column-dock { padding-bottom: var(--composer-keyboard-inset, 0px); }
 }
 @media (forced-colors: active) {
   .mention-editor-mirror, .mention-editor-ghost { display: none; }

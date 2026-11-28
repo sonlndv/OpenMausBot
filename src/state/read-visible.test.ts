@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { holdMarkedUnread, markVisibleBotThreadsRead, markVisibleGroupThreadsRead, shownChatHeldUnread } from "./read-visible";
+import { visibleNotificationThread } from "./thread-navigation";
 import type { Action, AppState, BotAnnouncement, Group } from "./store";
 
 it("marks both visible bot threads read while leaving a hidden task unread", () => {
@@ -43,6 +44,28 @@ it("reads only visible tiles of the announced owner, and leaves tiles alone whil
   markVisibleBotThreadsRead(state, bot, true, post);
   expect(post.mock.calls).toEqual([["/api/bots/other/read", "side", 0, "seen"]]);
   expect(bot.tasks?.map((task) => task.unread)).toEqual([false, true]);
+});
+
+it("does not read the hidden main chat or a hidden tile when a room tile fills the narrow window", () => {
+  let inline = false;
+  vi.stubGlobal("window", { matchMedia: () => ({ matches: inline }) });
+  try {
+    const state = { activeView: "chat", selectedId: "bot", bots: [{ id: "bot", threadId: "main" }], groups: [],
+      workspacePanes: { focused: "weekly", panels: { weekly: { kind: "group", ownerId: "room", threadId: "weekly" },
+        side: { kind: "bot", ownerId: "bot", threadId: "side" } } } } as unknown as AppState;
+    const post = vi.fn();
+    const group = { id: "room", tasks: [{ threadId: "weekly", unread: true }] } as Group;
+    markVisibleGroupThreadsRead(state, group, false, post);
+    expect(post).not.toHaveBeenCalled();
+    markVisibleBotThreadsRead(state, { id: "bot", tasks: ["main", "side"].map(threadId => ({ threadId, unread: true })) } as BotAnnouncement, true, post);
+    markVisibleGroupThreadsRead(state, group, true, post);
+    expect(post.mock.calls).toEqual([["/api/groups/room/read", "weekly", 0, "seen"]]);
+    const threads = ["main", "side", "weekly"];
+    for (const [wide, expected] of [[false, ["weekly"]], [true, threads]] as const) {
+      inline = wide;
+      expect(threads.filter(id => visibleNotificationThread(state, id) === id)).toEqual(expected);
+    }
+  } finally { vi.unstubAllGlobals(); }
 });
 
 describe("a conversation marked unread while it is open", () => {
